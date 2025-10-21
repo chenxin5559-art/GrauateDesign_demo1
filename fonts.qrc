@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/fonts">
+        <file>PingFang Regular_0.ttf</file>
+    </qresource>
+</RCC>

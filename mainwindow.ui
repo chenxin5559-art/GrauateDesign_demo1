@@ -1,0 +1,2827 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1755</width>
+    <height>994</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>1421</width>
+        <height>900</height>
+       </size>
+      </property>
+      <property name="font">
+       <font>
+        <family>PingFang SC Regular</family>
+        <pointsize>-1</pointsize>
+        <italic>false</italic>
+        <bold>false</bold>
+        <kerning>true</kerning>
+       </font>
+      </property>
+      <property name="contextMenuPolicy">
+       <enum>Qt::ContextMenuPolicy::DefaultContextMenu</enum>
+      </property>
+      <property name="layoutDirection">
+       <enum>Qt::LayoutDirection::LeftToRight</enum>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">/* 全局基础样式 */
+QWidget {
+    font-family: &quot;PingFang SC Regular&quot;;  /* 成功加载的字体 */
+    font-size: 30px;                    /* 基础字号（原 30px 过大，调整为更协调的 14px） */
+    color: #333333;
+    background-color: #f5f5f5;          /* 界面整体背景 */
+}
+
+/* ============== 输入框样式 ============== */
+QLineEdit {
+    height: 35px;                       /* 与按钮高度一致 */
+    border: 1px solid #d1d5db;          /* 浅灰边框 */
+    border-radius: 4px;                 /* 圆角 */
+    padding: 0 8px;                     /* 内边距 */
+    background-color: #ffffff;          /* 白色背景 */
+    font-size: 30px;                    /* 文字大小与全局一致 */
+}
+
+QLineEdit:focus {
+    border-color: #0078d4;              /* 聚焦时边框变主色 */
+    outline: none;                      /* 移除默认焦点框 */
+}
+
+QLineEdit::placeholder {
+    color: #999999;                     /* 占位符灰色 */
+}
+
+/* ============== QTabWidget 选项卡样式 ============== */
+QTabWidget::tab-bar {
+    alignment: left;  /* 选项卡居左排列 */
+}
+
+QTabWidget::tab {
+    background-color: #e0e0e0;         /* 默认背景 */
+    border: 1px solid #cccccc;          /* 边框 */
+    border-bottom: none;                /* 底部无边框（与内容区衔接） */
+    padding: 8px 16px;                  /* 内边距（上下 8px，左右 16px） */
+    margin-right: 4px;                  /* 右侧间距 */
+    border-top-left-radius: 4px;        /* 左上圆角 */
+    border-top-right-radius: 4px;       /* 右上圆角 */
+    font-size: 14px;                    /* 文字大小与全局一致 */
+}
+
+QTabWidget::tab:selected {
+    background-color: #ffffff;          /* 选中时背景变白 */
+    border-color: #cccccc;              /* 边框颜色不变 */
+    border-bottom-color: #ffffff;       /* 底部边框颜色与内容区背景一致（覆盖） */
+}
+
+QTabWidget::tab:hover {
+    background-color: #f0f0f0;          /* 悬停时背景变亮 */
+}
+
+/* ============== 按钮样式 ============== */
+QPushButton {
+    min-width: 80px;                    /* 最小宽度（避免过窄） */
+    height: 35px;                       /* 统一高度（与输入框一致） */
+    border: none;                       /* 无边框 */
+    border-radius: 4px;                 /* 圆角 */
+    padding: 0 12px;                    /* 内边距 */
+    color: #ffffff;                     /* 文字白色 */
+    background-color: #0078d4;          /* 主色（蓝色） */
+    /* 移除 Qt 不支持的 transition 属性 */
+}
+
+QPushButton:hover {
+    background-color: #005a9c;          /* 悬停加深 */
+    cursor: pointer;                    /* 手型光标（Qt 支持此属性，需确保拼写正确） */
+}
+
+QPushButton:pressed {
+    background-color: #004578;          /* 按下更深 */
+}
+
+QPushButton:disabled {
+    background-color: #e5e7eb;          /* 禁用浅灰 */
+    color: #6b7280;                     /* 禁用灰文字 */
+}
+
+/* 特殊功能按钮（如“红外测温仪通信”） */
+QPushButton#openDeviceCommunicationButton {
+    background-color: #10b981;          /* 绿色（区别主色） */
+    height: 35px;                       /* 与普通按钮高度一致 */
+    font-size: 30px;                    /* 文字大小与全局一致（原 30px 过大） */
+}
+
+QPushButton#openDeviceCommunicationButton:hover {
+    background-color: #059669;          /* 绿色加深 */
+}
+
+/* ============== QGroupBox 分组框样式 ============== */
+QGroupBox {
+    background-color: #f8f9fa;          /* 浅灰背景 */
+    border: 1px solid #e5e7eb;          /* 浅灰边框 */
+    border-radius: 8px;                 /* 圆角 */
+    margin-top: 24px;                   /* 顶部边距 */
+    padding: 16px;                      /* 内边距 */
+    font-size: 16px;                    /* 标题字号（比基础字号大 2px） */
+    font-weight: bold;                  /* 标题加粗 */
+    color: #111827;                     /* 标题深灰 */
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;          /* 标题位置基于 margin */
+    subcontrol-position: top left;      /* 标题居左 */
+    left: 8px;                          /* 左偏移 */
+    padding: 0 4px;                     /* 内边距 */
+    background-color: #f5f5f5;          /* 标题背景与主窗口一致 */
+}
+
+/* ============== 进度条样式 ============== */
+QProgressBar {
+    height: 30px;                       /* 高度 */
+    border: 1px solid #e5e7eb;          /* 浅灰边框 */
+    border-radius: 6px;                 /* 圆角 */
+    background-color: #f3f4f6;          /* 背景色 */
+    text-align: center;                 /* 文字居中 */
+    font-size: 12px;                    /* 文字大小 */
+}
+
+QProgressBar::chunk {
+    background-color: #0078d4;          /* 进度条颜色与按钮主色一致 */
+    border-radius: 5px;                 /* 圆角略小于外层 */
+}
+
+</string>
+      </property>
+      <property name="tabPosition">
+       <enum>QTabWidget::TabPosition::North</enum>
+      </property>
+      <property name="tabShape">
+       <enum>QTabWidget::TabShape::Rounded</enum>
+      </property>
+      <property name="currentIndex">
+       <number>2</number>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>16</width>
+        <height>16</height>
+       </size>
+      </property>
+      <property name="usesScrollButtons">
+       <bool>true</bool>
+      </property>
+      <property name="tabBarAutoHide">
+       <bool>false</bool>
+      </property>
+      <widget class="QWidget" name="autoMeasure">
+       <attribute name="title">
+        <string>自动测量</string>
+       </attribute>
+       <widget class="QPushButton" name="startCalibrationButton">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>790</y>
+          <width>271</width>
+          <height>81</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <family>PingFang SC Regular</family>
+          <pointsize>-1</pointsize>
+          <italic>false</italic>
+          <bold>false</bold>
+          <kerning>true</kerning>
+         </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="text">
+         <string>开始自动测量</string>
+        </property>
+       </widget>
+       <widget class="QWidget" name="layoutWidget">
+        <property name="geometry">
+         <rect>
+          <x>1090</x>
+          <y>450</y>
+          <width>501</width>
+          <height>71</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_13">
+         <item>
+          <widget class="QLabel" name="label_3">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="text">
+            <string>测量进度：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QProgressBar" name="calibrationProgressBar">
+           <property name="value">
+            <number>24</number>
+           </property>
+           <property name="format">
+            <string>%p%</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QLabel" name="label_26">
+        <property name="geometry">
+         <rect>
+          <x>40</x>
+          <y>20</y>
+          <width>201</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>设备类型选择：</string>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="calibrationTypeComboBox">
+        <property name="geometry">
+         <rect>
+          <x>240</x>
+          <y>20</y>
+          <width>161</width>
+          <height>61</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pauseResumeButton">
+        <property name="geometry">
+         <rect>
+          <x>720</x>
+          <y>790</y>
+          <width>271</width>
+          <height>81</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <family>PingFang SC Regular</family>
+          <pointsize>-1</pointsize>
+          <italic>false</italic>
+          <bold>false</bold>
+          <kerning>true</kerning>
+         </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="text">
+         <string>暂停</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="cancelButton">
+        <property name="geometry">
+         <rect>
+          <x>1090</x>
+          <y>790</y>
+          <width>271</width>
+          <height>81</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <family>PingFang SC Regular</family>
+          <pointsize>-1</pointsize>
+          <italic>false</italic>
+          <bold>false</bold>
+          <kerning>true</kerning>
+         </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="text">
+         <string>取消</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="statusLabel_3">
+        <property name="geometry">
+         <rect>
+          <x>520</x>
+          <y>30</y>
+          <width>341</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <family>PingFang SC Regular</family>
+          <pointsize>-1</pointsize>
+          <italic>false</italic>
+          <bold>false</bold>
+          <kerning>true</kerning>
+         </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="text">
+         <string>当前状态：</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QTextEdit" name="operationLogTextEdit">
+        <property name="geometry">
+         <rect>
+          <x>1090</x>
+          <y>210</y>
+          <width>511</width>
+          <height>221</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QWidget" name="layoutWidget">
+        <property name="geometry">
+         <rect>
+          <x>40</x>
+          <y>90</y>
+          <width>1271</width>
+          <height>49</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QLabel" name="label">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="autoFillBackground">
+            <bool>false</bool>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">#label, #label_2, #progressLabel {
+    color: #333333;
+}</string>
+           </property>
+           <property name="text">
+            <string>测量点温度输入：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="blackbodyTempInput">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">#blackbodyTempInput, #humidityTempHumidityInput {
+    background-color: #f0f0f0;
+    border: 1px solid #cccccc;
+    border-radius: 3px;
+    padding: 5px;
+}</string>
+           </property>
+           <property name="placeholderText">
+            <string>请输入黑体炉温度，如：10,20,30,40</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="layoutWidget">
+        <property name="geometry">
+         <rect>
+          <x>1090</x>
+          <y>580</y>
+          <width>401</width>
+          <height>46</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_14">
+         <item>
+          <widget class="QLabel" name="currentTempLabel_2">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="text">
+            <string>恒温箱当前温度：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="currentTempDisplay_2"/>
+         </item>
+         <item>
+          <widget class="QLabel" name="tempUnitLabel_3">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="text">
+            <string>℃</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="layoutWidget">
+        <property name="geometry">
+         <rect>
+          <x>1090</x>
+          <y>640</y>
+          <width>401</width>
+          <height>46</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_15">
+         <item>
+          <widget class="QLabel" name="currentHumLabel_3">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="text">
+            <string>恒温箱当前湿度：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="currentHumDisplay"/>
+         </item>
+         <item>
+          <widget class="QLabel" name="HumUnitLabel_1">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="text">
+            <string>%</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="layoutWidget">
+        <property name="geometry">
+         <rect>
+          <x>1090</x>
+          <y>700</y>
+          <width>401</width>
+          <height>46</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_26">
+         <item>
+          <widget class="QLabel" name="currentTempLabel_5">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="text">
+            <string>黑体炉当前温度：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="currentTempDisplay"/>
+         </item>
+         <item>
+          <widget class="QLabel" name="tempUnitLabel">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="text">
+            <string>℃</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="chartContainer" native="true">
+        <property name="geometry">
+         <rect>
+          <x>40</x>
+          <y>190</y>
+          <width>1001</width>
+          <height>531</height>
+         </rect>
+        </property>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="deviceControlTab">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>900</height>
+        </size>
+       </property>
+       <attribute name="title">
+        <string>设备控制</string>
+       </attribute>
+       <widget class="QGroupBox" name="incubatorGroup">
+        <property name="geometry">
+         <rect>
+          <x>60</x>
+          <y>70</y>
+          <width>751</width>
+          <height>651</height>
+         </rect>
+        </property>
+        <property name="title">
+         <string>恒温箱</string>
+        </property>
+        <widget class="QWidget" name="layoutWidget">
+         <property name="geometry">
+          <rect>
+           <x>23</x>
+           <y>44</y>
+           <width>681</width>
+           <height>571</height>
+          </rect>
+         </property>
+         <layout class="QFormLayout" name="formLayout">
+          <item row="0" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_20">
+            <item>
+             <widget class="QLabel" name="COMSlectLabel_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="text">
+               <string>COM口选择：</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="COMcomboBox_2"/>
+            </item>
+            <item>
+             <widget class="QPushButton" name="OpenComButton_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="text">
+               <string>打开</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_5">
+            <item>
+             <widget class="QLabel" name="connectionStatusLabel_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="text">
+               <string>连接状态：</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="statusLabel_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>true</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QLabel {  /* 需为标签设置对象名：setObjectName(&quot;statusLabel&quot;) */
+    min-width: 80px;          /* 固定宽度（避免文字过长） */
+    font-weight: bold;        /* 文字加粗 */
+}</string>
+              </property>
+              <property name="text">
+               <string>未连接</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="2" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_16">
+            <item>
+             <widget class="QLabel" name="incubatorControlLabel">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="text">
+               <string>恒温箱控制：</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="masterControlButton_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="text">
+               <string>获得控制</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="3" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_6">
+            <item>
+             <widget class="QLabel" name="targetTempLabel_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="text">
+               <string>目标温度：</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLineEdit" name="targetTempInput_2"/>
+            </item>
+            <item>
+             <widget class="QLabel" name="tempUnitLabel_4">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="text">
+               <string>℃</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="setTempButton_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="text">
+               <string>设置</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="4" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_8">
+            <item>
+             <widget class="QLabel" name="startStop_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="text">
+               <string>启动/停止：  </string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="startStopButton_2">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="text">
+               <string>启动</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="5" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_9">
+            <item>
+             <widget class="QLabel" name="changeSensorLabel">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="text">
+               <string>更换测温仪：</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="previousSensorButton">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="text">
+               <string>上一个</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="nextSensorButton">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="text">
+               <string>下一个</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="6" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_12">
+            <item>
+             <widget class="QLabel" name="calibrationWIndowLabel">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="text">
+               <string>标定窗口：   </string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="openWindowButton">
+              <property name="font">
+               <font>
+                <family>PingFang SC Regular</family>
+                <pointsize>-1</pointsize>
+                <italic>false</italic>
+                <bold>false</bold>
+                <kerning>true</kerning>
+               </font>
+              </property>
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="text">
+               <string>打开</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+       <widget class="QGroupBox" name="blackbodyGroup">
+        <property name="geometry">
+         <rect>
+          <x>830</x>
+          <y>70</y>
+          <width>671</width>
+          <height>651</height>
+         </rect>
+        </property>
+        <property name="title">
+         <string>黑体炉</string>
+        </property>
+        <widget class="QWidget" name="layoutWidget">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>50</y>
+           <width>434</width>
+           <height>45</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_19">
+          <item>
+           <widget class="QLabel" name="COMSlectLabel">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>COM口选择：</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="COMcomboBox"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="OpenComButton">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>打开</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="layoutWidget">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>310</y>
+           <width>244</width>
+           <height>45</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QLabel" name="startStop">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="text">
+             <string>启动/停止</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="startStopButton">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>启动</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="layoutWidget">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>110</y>
+           <width>252</width>
+           <height>39</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QLabel" name="connectionStatusLabel">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="text">
+             <string>连接状态：</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="statusLabel">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>true</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QLabel {  /* 需为标签设置对象名：setObjectName(&quot;statusLabel&quot;) */
+    min-width: 80px;          /* 固定宽度（避免文字过长） */
+    font-weight: bold;        /* 文字加粗 */
+}</string>
+            </property>
+            <property name="text">
+             <string>未连接</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="layoutWidget">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>170</y>
+           <width>422</width>
+           <height>45</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_10">
+          <item>
+           <widget class="QLabel" name="blackbodyControlLabel">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>黑体炉上位机控制：</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="masterControlButton">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>获得控制</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="layoutWidget">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>240</y>
+           <width>461</width>
+           <height>45</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QLabel" name="targetTempLabel">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="text">
+             <string>目标温度：</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="targetTempInput"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="tempUnitLabel_2">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="text">
+             <string>℃</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="setTempButton">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>设置</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="tab_2">
+       <attribute name="title">
+        <string>数据处理</string>
+       </attribute>
+       <widget class="QWidget" name="layoutWidget_7">
+        <property name="geometry">
+         <rect>
+          <x>1250</x>
+          <y>790</y>
+          <width>241</width>
+          <height>44</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_37">
+         <item>
+          <widget class="QLabel" name="reviewerslabel">
+           <property name="text">
+            <string>复核员：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="reviewerslineEdit">
+           <property name="text">
+            <string>张素娟</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="layoutWidget">
+        <property name="geometry">
+         <rect>
+          <x>1250</x>
+          <y>720</y>
+          <width>241</width>
+          <height>44</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_18">
+         <item>
+          <widget class="QLabel" name="testerLabel">
+           <property name="text">
+            <string>测试员：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="testerlineEdit">
+           <property name="text">
+            <string>谢欢</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QGroupBox" name="dataProcessGroupBox">
+        <property name="geometry">
+         <rect>
+          <x>1260</x>
+          <y>40</y>
+          <width>261</width>
+          <height>561</height>
+         </rect>
+        </property>
+        <property name="title">
+         <string>数据处理</string>
+        </property>
+        <widget class="QPushButton" name="singleHeadButton">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>50</y>
+           <width>221</width>
+           <height>71</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <family>PingFang SC Regular</family>
+           <pointsize>-1</pointsize>
+           <italic>false</italic>
+           <bold>false</bold>
+           <kerning>true</kerning>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">/* 数据处理按钮 */
+#multiHeadButton, #standardButton, #singleHeadButton, #processMergedButton, #btnProcessPython, #btnMultiFit, #mergeButton, #btnMergeSingleHead, #processMergedButton_2 {
+    background-color: #007BFF;
+    color: white;
+    border: 1px solid #0056b3;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+#multiHeadButton:hover, #standardButton:hover, #singleHeadButton:hover, #processMergedButton:hover, #btnProcessPython:hover, #btnMultiFit:hover, #mergeButton:hover, #btnMergeSingleHead:hover, #processMergedButton_2:hover {
+    background-color: #0056b3;
+}</string>
+         </property>
+         <property name="text">
+          <string>单头数据提取</string>
+         </property>
+        </widget>
+        <widget class="QPushButton" name="integratedProcessButton">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>240</y>
+           <width>221</width>
+           <height>81</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <family>PingFang SC Regular</family>
+           <pointsize>-1</pointsize>
+           <italic>false</italic>
+           <bold>false</bold>
+           <kerning>true</kerning>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">/* 数据处理按钮 */
+#multiHeadButton, #standardButton, #singleHeadButton, #processMergedButton, #btnProcessPython, #btnMultiFit, #mergeButton, #btnMergeSingleHead, #processMergedButton_2 {
+    background-color: #007BFF;
+    color: white;
+    border: 1px solid #0056b3;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+#multiHeadButton:hover, #standardButton:hover, #singleHeadButton:hover, #processMergedButton:hover, #btnProcessPython:hover, #btnMultiFit:hover, #mergeButton:hover, #btnMergeSingleHead:hover, #processMergedButton_2:hover {
+    background-color: #0056b3;
+}</string>
+         </property>
+         <property name="text">
+          <string>单头一键拟合</string>
+         </property>
+        </widget>
+        <widget class="QPushButton" name="multiHeadButton">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>150</y>
+           <width>221</width>
+           <height>71</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <family>PingFang SC Regular</family>
+           <pointsize>-1</pointsize>
+           <italic>false</italic>
+           <bold>false</bold>
+           <kerning>true</kerning>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">/* 数据处理按钮 */
+#multiHeadButton, #standardButton, #singleHeadButton, #processMergedButton, #btnProcessPython, #btnMultiFit, #mergeButton, #btnMergeSingleHead, #processMergedButton_2 {
+    background-color: #007BFF;
+    color: white;
+    border: 1px solid #0056b3;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+#multiHeadButton:hover, #standardButton:hover, #singleHeadButton:hover, #processMergedButton:hover, #btnProcessPython:hover, #btnMultiFit:hover, #mergeButton:hover, #btnMergeSingleHead:hover, #processMergedButton_2:hover {
+    background-color: #0056b3;
+}</string>
+         </property>
+         <property name="text">
+          <string>多头数据提取</string>
+         </property>
+        </widget>
+        <widget class="QPushButton" name="allInOneButton">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>350</y>
+           <width>221</width>
+           <height>81</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <family>PingFang SC Regular</family>
+           <pointsize>-1</pointsize>
+           <italic>false</italic>
+           <bold>false</bold>
+           <kerning>true</kerning>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">/* 数据处理按钮 */
+#multiHeadButton, #standardButton, #singleHeadButton, #processMergedButton, #btnProcessPython, #btnMultiFit, #mergeButton, #btnMergeSingleHead, #processMergedButton_2 {
+    background-color: #007BFF;
+    color: white;
+    border: 1px solid #0056b3;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+#multiHeadButton:hover, #standardButton:hover, #singleHeadButton:hover, #processMergedButton:hover, #btnProcessPython:hover, #btnMultiFit:hover, #mergeButton:hover, #btnMergeSingleHead:hover, #processMergedButton_2:hover {
+    background-color: #0056b3;
+}</string>
+         </property>
+         <property name="text">
+          <string>多头一键拟合</string>
+         </property>
+        </widget>
+        <widget class="QPushButton" name="pushButton_3">
+         <property name="geometry">
+          <rect>
+           <x>50</x>
+           <y>470</y>
+           <width>161</width>
+           <height>61</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>配置系数</string>
+         </property>
+        </widget>
+       </widget>
+       <widget class="QCheckBox" name="checkBox">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>100</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>1—COM1</string>
+        </property>
+        <property name="iconSize">
+         <size>
+          <width>16</width>
+          <height>16</height>
+         </size>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>100</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_2">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>100</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_3">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>100</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_4">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>100</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_5">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>100</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_6">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>170</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_7">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>170</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_8">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>170</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_9">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>170</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_2">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>170</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>2—COM2</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_10">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>170</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_21">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>310</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_5">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>310</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>4—COM4</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_22">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>240</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_23">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>240</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_24">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>240</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_25">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>310</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_26">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>310</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_6">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>240</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>3—COM3</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_27">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>240</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_28">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>240</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_29">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>310</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_30">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>310</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_31">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>590</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_7">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>450</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>6—COM6</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_32">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>380</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_33">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>450</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_34">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>520</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_35">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>380</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_36">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>380</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_37">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>520</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_38">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>590</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_39">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>590</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_40">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>450</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_41">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>520</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_42">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>450</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_8">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>380</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>5—COM5</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_43">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>520</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_44">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>380</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_45">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>520</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_46">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>380</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_47">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>450</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_9">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>590</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>8—COM8</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_48">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>590</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_49">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>590</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_10">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>520</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>7—COM7</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_50">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>450</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_11">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>730</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>10—COM10</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_51">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>660</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_52">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>730</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="checkBox_12">
+        <property name="geometry">
+         <rect>
+          <x>100</x>
+          <y>660</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>9—COM9</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_53">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>660</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_54">
+        <property name="geometry">
+         <rect>
+          <x>690</x>
+          <y>730</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_55">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>730</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_56">
+        <property name="geometry">
+         <rect>
+          <x>930</x>
+          <y>660</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_57">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>730</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_58">
+        <property name="geometry">
+         <rect>
+          <x>480</x>
+          <y>660</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_59">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>660</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="lineEdit_60">
+        <property name="geometry">
+         <rect>
+          <x>1130</x>
+          <y>730</y>
+          <width>91</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QWidget" name="layoutWidget">
+        <property name="geometry">
+         <rect>
+          <x>40</x>
+          <y>50</y>
+          <width>1201</width>
+          <height>39</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_17">
+         <item>
+          <widget class="QLabel" name="label_4">
+           <property name="text">
+            <string>机位号—COM口号</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_5">
+           <property name="text">
+            <string>SN号</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>系数状态</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_3">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>负温最大误差</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_4">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_8">
+           <property name="text">
+            <string>正温最大误差</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_5">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_9">
+           <property name="text">
+            <string>误差状态</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="IRTCommTab_1">
+       <attribute name="title">
+        <string>红外测温仪通信</string>
+       </attribute>
+       <widget class="QTabWidget" name="IRTCommTab">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>1751</width>
+          <height>881</height>
+         </rect>
+        </property>
+        <property name="currentIndex">
+         <number>-1</number>
+        </property>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="tab">
+       <property name="layoutDirection">
+        <enum>Qt::LayoutDirection::LeftToRight</enum>
+       </property>
+       <attribute name="title">
+        <string>设备参数配置</string>
+       </attribute>
+       <widget class="QLabel" name="devicesComLabel">
+        <property name="geometry">
+         <rect>
+          <x>50</x>
+          <y>80</y>
+          <width>281</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>红外测温仪端口配置：</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="blackbodyComEdit">
+        <property name="geometry">
+         <rect>
+          <x>290</x>
+          <y>460</y>
+          <width>171</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="blackbodyComLabel">
+        <property name="geometry">
+         <rect>
+          <x>60</x>
+          <y>460</y>
+          <width>231</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>黑体炉端口配置：</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="humidityComEdit">
+        <property name="geometry">
+         <rect>
+          <x>290</x>
+          <y>530</y>
+          <width>171</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="humidityComLabel">
+        <property name="geometry">
+         <rect>
+          <x>60</x>
+          <y>530</y>
+          <width>221</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>恒温箱端口配置</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="saveConfigButton">
+        <property name="geometry">
+         <rect>
+          <x>570</x>
+          <y>730</y>
+          <width>221</width>
+          <height>81</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>保存配置</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="serialBaudRateLabel">
+        <property name="geometry">
+         <rect>
+          <x>50</x>
+          <y>140</y>
+          <width>111</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>波特率：</string>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="serialBaudRateComboBox">
+        <property name="geometry">
+         <rect>
+          <x>170</x>
+          <y>140</y>
+          <width>131</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="currentText">
+         <string>1200</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>1200</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>2400</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>4800</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>9600</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>115200</string>
+         </property>
+        </item>
+       </widget>
+       <widget class="QComboBox" name="serialDataBitsComboBox">
+        <property name="geometry">
+         <rect>
+          <x>170</x>
+          <y>200</y>
+          <width>131</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="currentText">
+         <string>5</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>5</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>6</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>7</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>8</string>
+         </property>
+        </item>
+       </widget>
+       <widget class="QLabel" name="serialDataBitsLabel">
+        <property name="geometry">
+         <rect>
+          <x>50</x>
+          <y>200</y>
+          <width>111</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>数据位：</string>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="serialStopBitsComboBox">
+        <property name="geometry">
+         <rect>
+          <x>170</x>
+          <y>260</y>
+          <width>131</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <item>
+         <property name="text">
+          <string>1</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>1.5</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>2</string>
+         </property>
+        </item>
+       </widget>
+       <widget class="QLabel" name="serialStopBitsLabel">
+        <property name="geometry">
+         <rect>
+          <x>50</x>
+          <y>260</y>
+          <width>111</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>停止位：</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="serialParityLabel">
+        <property name="geometry">
+         <rect>
+          <x>50</x>
+          <y>320</y>
+          <width>101</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>校验位：</string>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="serialParityComboBox">
+        <property name="geometry">
+         <rect>
+          <x>170</x>
+          <y>320</y>
+          <width>131</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <item>
+         <property name="text">
+          <string>none</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>even</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>odd</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>mark</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>space</string>
+         </property>
+        </item>
+       </widget>
+       <widget class="QTextEdit" name="devicesComPortsEdit">
+        <property name="geometry">
+         <rect>
+          <x>350</x>
+          <y>80</y>
+          <width>581</width>
+          <height>291</height>
+         </rect>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>80</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">background-color: white;</string>
+        </property>
+        <property name="acceptRichText">
+         <bool>false</bool>
+        </property>
+       </widget>
+       <widget class="QWidget" name="layoutWidget_15">
+        <property name="geometry">
+         <rect>
+          <x>550</x>
+          <y>530</y>
+          <width>1021</width>
+          <height>42</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_7">
+         <item>
+          <widget class="QLineEdit" name="savePathLineEdit_3">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"/>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="selectPathButton_3">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"/>
+           </property>
+           <property name="text">
+            <string>选择路径</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="enableSaveCheckBox_3">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"/>
+           </property>
+           <property name="text">
+            <string>自动保存数据</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="layoutWidget_16">
+        <property name="geometry">
+         <rect>
+          <x>550</x>
+          <y>460</y>
+          <width>1021</width>
+          <height>45</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_11">
+         <item>
+          <widget class="QLineEdit" name="savePathLineEdit">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"/>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="selectPathButton">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"/>
+           </property>
+           <property name="text">
+            <string>选择路径</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="enableSaveCheckBox">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"/>
+           </property>
+           <property name="text">
+            <string>自动保存数据</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="calibrationConfigTab">
+       <attribute name="title">
+        <string>测量点配置</string>
+       </attribute>
+       <widget class="QLabel" name="label_10">
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>110</y>
+          <width>141</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>单头箱内：</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="singleHeadInTempEdit">
+        <property name="geometry">
+         <rect>
+          <x>300</x>
+          <y>110</y>
+          <width>1161</width>
+          <height>51</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="singleHeadOutTempEdit">
+        <property name="geometry">
+         <rect>
+          <x>300</x>
+          <y>190</y>
+          <width>1161</width>
+          <height>51</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_11">
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>190</y>
+          <width>141</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>单头箱外：</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="multiHeadInTempEdit">
+        <property name="geometry">
+         <rect>
+          <x>300</x>
+          <y>270</y>
+          <width>1161</width>
+          <height>51</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_12">
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>270</y>
+          <width>141</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>多头箱内：</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="multiHeadOutTempEdit">
+        <property name="geometry">
+         <rect>
+          <x>300</x>
+          <y>350</y>
+          <width>1161</width>
+          <height>51</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_25">
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>350</y>
+          <width>141</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>多头箱外：</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="saveCalibrationConfigButton">
+        <property name="geometry">
+         <rect>
+          <x>650</x>
+          <y>490</y>
+          <width>281</width>
+          <height>101</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>保存测量点配置</string>
+        </property>
+       </widget>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

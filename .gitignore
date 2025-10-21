@@ -1,0 +1,13 @@
+# Build files
+build/
+*.o
+*.a
+*.so
+*.dll
+
+# Qt User files
+*.user
+*.user.*
+
+# Executables
+*.exe

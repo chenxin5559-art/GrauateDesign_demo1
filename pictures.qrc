@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>images/login-icon1.png</file>
+        <file>images/passwordWrite-icon.png</file>
+        <file>images/software-icon.png</file>
+        <file>images/close.png</file>
+        <file>images/Maximize.png</file>
+        <file>images/Minimize.png</file>
+    </qresource>
+</RCC>

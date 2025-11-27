@@ -9,6 +9,13 @@
 #include "humiditycontroller.h"
 #include <QTimer>
 #include <QStringList>
+#include "ServoMotorController.h"
+
+// 定义任务结构体
+struct SensorTask {
+    QString comPort;  // 串口号
+    int position;     // 物理位置 (1-10)
+};
 
 class CalibrationManager : public QObject
 {
@@ -17,50 +24,60 @@ public:
 
     struct InfraredData {
         QString type; // 设备类型（"单头"/"多头"）
-        QVector<float> toAvgs; // TO通道平均温度（单头1个，多头3个）
-        QVector<float> taAvgs; // TA通道平均温度（单头1个，多头3个）
-        QVector<float> lcAvgs; // 新增：LC通道平均温度（单头1个，多头3个）
+        QVector<float> toAvgs;
+        QVector<float> taAvgs;
+        QVector<float> lcAvgs;
     };
 
     struct CalibrationRecord {
         float blackbodyTarget; // 黑体炉目标温度
         QDateTime measureTime; // 测量时间
-        float blackbodyAvg; // 黑体炉最后一分钟平均温度
-        QString comPort; // 红外测温仪COM口
-        InfraredData irData; // 红外数据
+        float blackbodyAvg;    // 黑体炉最后一分钟平均温度
+        QString comPort;       // 红外测温仪COM口
+        InfraredData irData;   // 红外数据
+        int physicalPosition;  // 物理位置
     };
 
-    // 定义流程阶段（细分步骤）
+    // 保存当前批次的基准数据
+    struct BatchReferenceData {
+        float blackbodyTarget;
+        float blackbodyAvg;
+        QDateTime measureTime;
+    };
+
+    // 定义流程阶段
     enum PausedStage {
-        None,               // 无（未暂停）
-        StabilityCheck,     // 温度稳定检查阶段（滑动窗口采样中）
-        WaitingForNextMinute, // 新增：等待下一分钟开始测量
-        WaitingSixMinutes,  // 6分钟等待阶段（未到最后1分钟采样）
-        MinuteSampling      // 最后1分钟采样阶段
+        None,
+        StabilityCheck,
+        WaitingForNextMinute,
+        WaitingSixMinutes,
+        MinuteSampling,
+        ServoMoving
     };
 
     enum State {
-        Idle,           // 空闲状态
-        Running,        // 运行中
-        Paused,         // 已暂停
-        Canceling,      // 取消中
-        Finished        // 已完成
+        Idle,
+        Running,
+        Paused,
+        Canceling,
+        Finished
     };
     Q_ENUM(State)
-
-    void pauseCalibration();
-    void resumeCalibration();
-    void cancelCalibration();
-    State getCurrentState() const;
 
     explicit CalibrationManager(BlackbodyController *blackbodyController, HumidityController *humidityController, QObject *parent = nullptr);
     ~CalibrationManager();
 
     void startCalibration(const QVector<float> &blackbodyTempPoints, const QVector<float> &humidityTempPoints);
 
+    void pauseCalibration();
+    void resumeCalibration();
+    void cancelCalibration();
+    State getCurrentState() const;
     void setCurrentOperation(const QString &operation);
     QString getCurrentOperation() const;
 
+    void setServoController(ServoMotorController *servo);
+    void setMeasurementQueue(const QVector<SensorTask>& queue);
 
 signals:
     void calibrationFinished(const QVector<CalibrationRecord> &calibrationData);
@@ -68,73 +85,74 @@ signals:
     void currentOperationChanged(const QString &operation);
     void calibrationProgress(int progress);
     void stateChanged(State newState);
-    // 新增：倒计时更新信号
     void countdownUpdated(int secondsRemaining, const QString &stage);
-
-    // 新增：红外测量开始/结束信号（携带当前COM口）
     void irMeasurementStarted(const QString &currentComPort);
     void irMeasurementStopped();
-
-    // 请求红外平均数据（参数：COM口，接收者）
     void requestIrAverage(const QString& comPort, QObject* receiver);
 
 private slots:
     void checkStability(int index);
     void startMeasurement(int index);
     void recordMeasurement(int index);
-    void checkAllSensorsMeasured(int index);
+
     void calibrateNextPoint(int index);
     void generateCalibrationReport();
     void startWaitingSixMinutes(int index);
-    void reverseSwitch(int index);
 
     void onCountdownTimerTimeout();
-
     void onWaitNextMinuteTimeout();
 
-    // 接收红外平均数据
+    // 【新增】将原来Lambda里的逻辑提取为槽函数
+    void onFiveMinuteTimeout();   // 5分钟等待结束，开始采样
+    void onSixMinuteTimeout();    // 6分钟等待结束，记录数据
+    void onMinuteSampleTimeout(); // 每秒采样一次
+
     void onIrAverageReceived(const QString& comPort, const CalibrationManager::InfraredData& irData);
+    void onServoInPosition();
 
 private:
     BlackbodyController *m_blackbodyController;
     HumidityController *m_humidityController;
+    ServoMotorController *m_servo = nullptr;
+
     QVector<float> m_blackbodyTempPoints;
     QVector<float> m_humidityTempPoints;
     QVector<CalibrationRecord> m_calibrationData;
-    int m_currentSensorIndex = 0;
-    QTimer m_timer;
-    QVector<QPair<float, float>> m_samples;      // 存储采样的温度数据
-    QVector<float> m_humiditySamples;            // 存储采样的湿度数据
-    int m_sampleCount = 0;                       // 当前采样次数
-    int m_targetSampleCount = 0;                 // 目标采样次数
-    QStringList m_comPorts; // 存储COM口号列表
-    QDateTime m_fifthMinuteTime; // 记录第5分钟的时间
-    int sensorSwitchCount; // 记录切换测温仪的次数
-    QString currentOperation; // 记录当前操作描述
 
-    QVector<float> m_minuteSamples;   // 存储一分钟内的温度采样
-    QTimer m_minuteSampleTimer;       // 一分钟采样定时器
+    QTimer m_timer;
+    QTimer m_fiveMinuteTimer;
+    QTimer m_sixMinuteTimer;
+    QTimer m_minuteSampleTimer;
+    QTimer m_countdownTimer;
+    QTimer m_waitNextMinuteTimer;
+
+    QVector<QPair<float, float>> m_samples;
+    QVector<float> m_humiditySamples;
+    QVector<float> m_minuteSamples;
+    int m_sampleCount = 0;
 
     State m_currentState = Idle;
+    PausedStage m_pausedStage = None;
     bool m_paused = false;
     bool m_canceling = false;
-    int m_currentIndex = -1;          // 当前处理的温度点索引
+    int m_currentIndex = -1;
+    QString currentOperation;
 
-    PausedStage m_pausedStage = None; // 记录暂停时的阶段
+    QDateTime m_startSixMinuteTime;
+    QDateTime m_currentWaitStartTime;
+    int m_totalWaitSeconds = 0;
+    QString m_currentCountdownStage;
+    int m_currentWaitIndex = 0;
 
-    QDateTime m_startSixMinuteTime;   // 6分钟等待开始时间
-    QDateTime m_currentWaitStartTime; // 当前等待阶段开始时间（通用）
-    int m_totalWaitSeconds;           // 当前等待阶段总时长（秒）
+    QVector<SensorTask> m_taskQueue;
+    int m_currentTaskIndex = 0;
+    BatchReferenceData m_currentBatchData;
+    const double DEGREES_PER_SLOT = 40.0;
 
-    QTimer m_fiveMinuteTimer;   // 5分钟定时器（用于启动最后一分钟采样）
-    QTimer m_sixMinuteTimer;    // 6分钟定时器（用于记录数据）
-    QTimer m_countdownTimer;    // 新增：倒计时更新定时器
-    QTimer m_waitNextMinuteTimer; // 新增：用于“等待下一分钟”的成员定时器
-    int m_currentWaitIndex; // 新增：记录当前等待阶段对应的温度点索引
-    QString m_currentCountdownStage;  // 新增：当前倒计时阶段描述
-
-    // 新增：声明临时记录变量
-    QVector<CalibrationRecord> m_tempRecords;
+    void startSensorSequence();
+    void processCurrentTask();
+    void finishSequence();
 };
 
 #endif // CALIBRATIONMANAGER_H
+

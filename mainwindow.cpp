@@ -39,6 +39,9 @@ MainWindow::MainWindow(QWidget *parent)
     // 初始化恒温恒湿箱控制（新增）
     setupHumidityControls();
 
+    // 【新增】初始化伺服电机控制器
+    m_servoController = new ServoMotorController(this);
+
     // 连接信号槽
     setupConnections();
 
@@ -648,8 +651,25 @@ void MainWindow::setupHumidityControls() {
     connect(ui->setTempButton_2, &QPushButton::clicked, this, &MainWindow::onSetTargetTemperatureClicked);
     ui->startStopButton_2->setCheckable(true);
     connect(ui->startStopButton_2, &QPushButton::clicked, this, &MainWindow::onStartStopButtonClicked);
-    connect(ui->previousSensorButton, &QPushButton::clicked, this,[this]() { onChangeSensorButtonClicked(-1); });
-    connect(ui->nextSensorButton, &QPushButton::clicked, this,[this]() { onChangeSensorButtonClicked(1); });
+
+    connect(ui->previousSensorButton, &QPushButton::clicked, this, [this]() {
+        if (m_servoController && m_servoController->isConnected()) {
+            m_servoController->moveRelative(-40.0); // 假设你在Servo类里实现了这个，或者手动发指令
+            // 如果Servo类里只实现了moveToAbsolute，这里可以先不做，或者加上moveRelative的实现
+        } else {
+            QMessageBox::warning(this, "提示", "伺服电机未连接");
+        }
+    });
+
+    // "下一个"按钮 -> 顺时针转40度
+    connect(ui->nextSensorButton, &QPushButton::clicked, this, [this]() {
+        if (m_servoController && m_servoController->isConnected()) {
+            m_servoController->moveRelative(40.0);
+        } else {
+            QMessageBox::warning(this, "提示", "伺服电机未连接");
+        }
+    });
+
     connect(ui->openWindowButton, &QPushButton::clicked, this, &MainWindow::onToggleCalibrationWindowClicked);
 
     connect(humidityTimer, &QTimer::timeout, m_humidityController, &HumidityController::readCurrentTemperature);
@@ -1350,6 +1370,7 @@ void MainWindow::generateTemplateFile(QXlsx::Document& srcDoc,
 void MainWindow::setupCalibrationManager()
 {
     m_calibrationManager = new CalibrationManager(m_blackbodyController, m_humidityController, this);
+    m_calibrationManager->setServoController(m_servoController);
     connect(m_calibrationManager, &CalibrationManager::calibrationFinished, this, &MainWindow::onCalibrationFinished);
     connect(m_calibrationManager, &CalibrationManager::errorOccurred, this, &MainWindow::onCalibrationError);
 }
@@ -1358,14 +1379,12 @@ void MainWindow::onStartCalibrationClicked()
 {
     calibrationButtonClickCount++;
 
-    // 仅读取黑体炉温度点
+    // 1. 解析温度点 (保留原有逻辑)
     QString blackbodyTempStr = ui->blackbodyTempInput->text();
     QStringList blackbodyTemps = blackbodyTempStr.split(",");
-
     QVector<float> blackbodyTempPoints;
-    QVector<float> humidityTempPoints;  // 自动生成的恒温箱温度
+    QVector<float> humidityTempPoints;
 
-    // 解析黑体炉温度点
     for (const QString &tempStr : blackbodyTemps) {
         bool ok;
         float temp = tempStr.toFloat(&ok);
@@ -1374,35 +1393,69 @@ void MainWindow::onStartCalibrationClicked()
         }
     }
 
-    // 校验黑体炉温度点有效性
     if (blackbodyTempPoints.isEmpty()) {
         QMessageBox::warning(this, "错误", "请输入有效的黑体炉温度点");
         return;
     }
 
-    // 根据标定类型生成恒温箱温度点
+    // 生成恒温箱温度点 (保留原有逻辑)
     int calibrationType = ui->calibrationTypeComboBox->currentIndex();
-    bool isInside = (calibrationType == 0 || calibrationType == 2); // 箱内类型（0:单头箱内, 2:多头箱内）
-
+    bool isInside = (calibrationType == 0 || calibrationType == 2);
     for (float bbTemp : blackbodyTempPoints) {
-        if (isInside) {
-            // 箱内：恒温箱温度 = 黑体炉温度
-            humidityTempPoints.append(bbTemp);
-        } else {
-            // 箱外：恒温箱温度固定为25℃
-            humidityTempPoints.append(25.0f);
+        if (isInside) humidityTempPoints.append(bbTemp);
+        else humidityTempPoints.append(25.0f);
+    }
+
+    // ================== 【新增核心逻辑开始】 ==================
+
+    // 2. 连接伺服电机 (如果未连接)
+    if (!m_servoController->isConnected()) {
+        // 优先从 config.ini 读取 servo/com_port，如果没有则默认 COM1
+        QString servoPort = m_settings->value("servo/com_port", "COM1").toString();
+
+        if (!m_servoController->connectDevice(servoPort)) {
+            QMessageBox::critical(this, "连接失败",
+                                  QString("无法连接伺服电机 (端口: %1)\n请在 config.ini 中配置 [servo] com_port=COMx").arg(servoPort));
+            return;
         }
     }
 
-    qDebug() << "解析后的黑体炉温度点数量: " << blackbodyTempPoints.size();
-    qDebug() << "自动生成的恒温箱温度点数量: " << humidityTempPoints.size();
-    qDebug() << "标定类型: " << (isInside ? "箱内（恒温箱温度=黑体炉温度）" : "箱外（恒温箱温度=25℃）");
+    // 3. 解析设备位置配置 (例如 "1-COM9, 2-COM11")
+    QString mappingStr = m_settings->value("devices/com_ports").toString();
+    mappingStr.remove('"'); // 去除引号
+    QStringList pairs = mappingStr.split(',', Qt::SkipEmptyParts);
+    QVector<SensorTask> taskQueue;
+
+    for (const QString &pair : pairs) {
+        QStringList parts = pair.split('-');
+        if (parts.size() == 2) {
+            bool ok;
+            int pos = parts[0].toInt(&ok);     // 物理位置
+            QString com = parts[1].trimmed();  // COM口
+
+            if (ok && pos >= 1 && pos <= 10) {
+                taskQueue.append({com, pos});
+            } else {
+                qWarning() << "忽略无效的位置配置:" << pair;
+            }
+        }
+    }
+
+    if (taskQueue.isEmpty()) {
+        QMessageBox::critical(this, "配置错误", "未解析到有效的设备位置信息！\n请检查 config.ini 的 [devices] com_ports 设置。\n格式应为: 1-COMx, 2-COMy");
+        return;
+    }
+
+    // 4. 将任务队列传递给管理器
+    m_calibrationManager->setMeasurementQueue(taskQueue);
+
+    // ================== 【新增核心逻辑结束】 ==================
 
     checkAutoSaveSettings();
-
     calibrationInProgress = true;
     ui->startCalibrationButton->setEnabled(false);
-    // 传递自动生成的温度参数
+
+    // 启动标定
     m_calibrationManager->startCalibration(blackbodyTempPoints, humidityTempPoints);
 }
 

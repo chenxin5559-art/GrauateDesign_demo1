@@ -37,7 +37,8 @@ SOURCES += \
     mainwindow.cpp \
     modelingpointdialog.cpp \
     pythonprocessor.cpp \
-    serialportthread.cpp
+    serialportthread.cpp \
+    servomotorcontroller.cpp
 
 HEADERS += \
     blackbodycontroller.h \
@@ -51,7 +52,8 @@ HEADERS += \
     mainwindow.h \
     modelingpointdialog.h \
     pythonprocessor.h \
-    serialportthread.h
+    serialportthread.h \
+    servomotorcontroller.h
 
 FORMS += \
     loginwindow.ui \

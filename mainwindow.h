@@ -22,6 +22,7 @@
 #include <QHeaderView>
 #include <QUrl>
 #include "dualtemperaturechart.h"
+#include "ServoMotorController.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -124,13 +125,13 @@ private slots:
     void onIrMeasurementStopped(); // 红外测量结束
     void updateIrChartFromTable(); // 从表格更新红外图表数据
 
-
 private:
     Ui::MainWindow *ui;
 
     // 确保声明为QTabWidget
     QTabWidget *IRTCommTab;
 
+    ServoMotorController *m_servoController;
     BlackbodyController *m_blackbodyController;
     HumidityController *m_humidityController = nullptr;
     void setupBlackbodyControls();

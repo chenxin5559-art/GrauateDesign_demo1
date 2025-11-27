@@ -860,64 +860,6 @@ QProgressBar::chunk {
            </layout>
           </item>
           <item row="5" column="0">
-           <layout class="QHBoxLayout" name="horizontalLayout_9">
-            <item>
-             <widget class="QLabel" name="changeSensorLabel">
-              <property name="font">
-               <font>
-                <family>PingFang SC Regular</family>
-                <pointsize>-1</pointsize>
-                <italic>false</italic>
-                <bold>false</bold>
-                <kerning>true</kerning>
-               </font>
-              </property>
-              <property name="text">
-               <string>更换测温仪：</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="previousSensorButton">
-              <property name="font">
-               <font>
-                <family>PingFang SC Regular</family>
-                <pointsize>-1</pointsize>
-                <italic>false</italic>
-                <bold>false</bold>
-                <kerning>true</kerning>
-               </font>
-              </property>
-              <property name="styleSheet">
-               <string notr="true"/>
-              </property>
-              <property name="text">
-               <string>上一个</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="nextSensorButton">
-              <property name="font">
-               <font>
-                <family>PingFang SC Regular</family>
-                <pointsize>-1</pointsize>
-                <italic>false</italic>
-                <bold>false</bold>
-                <kerning>true</kerning>
-               </font>
-              </property>
-              <property name="styleSheet">
-               <string notr="true"/>
-              </property>
-              <property name="text">
-               <string>下一个</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item row="6" column="0">
            <layout class="QHBoxLayout" name="horizontalLayout_12">
             <item>
              <widget class="QLabel" name="calibrationWIndowLabel">
@@ -965,7 +907,7 @@ QProgressBar::chunk {
           <x>830</x>
           <y>70</y>
           <width>671</width>
-          <height>651</height>
+          <height>381</height>
          </rect>
         </property>
         <property name="title">
@@ -1247,6 +1189,194 @@ QProgressBar::chunk {
             </property>
             <property name="text">
              <string>设置</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+       <widget class="QGroupBox" name="servomotorGroup">
+        <property name="geometry">
+         <rect>
+          <x>830</x>
+          <y>470</y>
+          <width>671</width>
+          <height>261</height>
+         </rect>
+        </property>
+        <property name="title">
+         <string>伺服电机</string>
+        </property>
+        <widget class="QWidget" name="layoutWidget_2">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>50</y>
+           <width>434</width>
+           <height>45</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_21">
+          <item>
+           <widget class="QLabel" name="COMSlectLabel_3">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>COM口选择：</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="COMcomboBox_3"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="OpenComButton_3">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>打开</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="layoutWidget_4">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>110</y>
+           <width>252</width>
+           <height>39</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_23">
+          <item>
+           <widget class="QLabel" name="connectionStatusLabel_3">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="text">
+             <string>连接状态：</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="statusLabel_4">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>true</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QLabel {  /* 需为标签设置对象名：setObjectName(&quot;statusLabel&quot;) */
+    min-width: 80px;          /* 固定宽度（避免文字过长） */
+    font-weight: bold;        /* 文字加粗 */
+}</string>
+            </property>
+            <property name="text">
+             <string>未连接</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>170</y>
+           <width>422</width>
+           <height>66</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_9">
+          <item>
+           <widget class="QLabel" name="changeSensorLabel">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="text">
+             <string>更换测温仪：</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="previousSensorButton">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>上一个</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="nextSensorButton">
+            <property name="font">
+             <font>
+              <family>PingFang SC Regular</family>
+              <pointsize>-1</pointsize>
+              <italic>false</italic>
+              <bold>false</bold>
+              <kerning>true</kerning>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>下一个</string>
             </property>
            </widget>
           </item>
@@ -2704,6 +2834,29 @@ QProgressBar::chunk {
           </widget>
          </item>
         </layout>
+       </widget>
+       <widget class="QLineEdit" name="servoComEdit">
+        <property name="geometry">
+         <rect>
+          <x>330</x>
+          <y>600</y>
+          <width>171</width>
+          <height>41</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="blackbodyComLabel_2">
+        <property name="geometry">
+         <rect>
+          <x>50</x>
+          <y>600</y>
+          <width>271</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>伺服电机端口配置：</string>
+        </property>
        </widget>
       </widget>
       <widget class="QWidget" name="calibrationConfigTab">

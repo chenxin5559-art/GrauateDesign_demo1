@@ -42,6 +42,8 @@ MainWindow::MainWindow(QWidget *parent)
     // 【新增】初始化伺服电机控制器
     m_servoController = new ServoMotorController(this);
 
+    setupServoControls();
+
     // 连接信号槽
     setupConnections();
 
@@ -2993,6 +2995,16 @@ void MainWindow::loadConfigToUI()
     QString humidityCom = settings.value("humidity/com_port", "COM11").toString();
     ui->humidityComEdit->setText(humidityCom);
 
+    // 4. 加载伺服电机配置 ==================
+    QString servoCom = m_settings->value("servo/com_port", "COM1").toString();
+
+    // 检查界面上是否已添加 servoComEdit，防止程序崩溃
+    if (ui->servoComEdit) {
+        ui->servoComEdit->setText(servoCom);
+    } else {
+        // 如果你还没在UI里加这个框，暂用日志提示
+        qWarning() << "UI中未找到 servoComEdit 控件，无法显示电机串口";
+    }
 
     // 加载标定温度配置到"标定配置"页
     QString multiHeadOut = settings.value("calibration_temperatures/multi_head_out",
@@ -3061,6 +3073,18 @@ void MainWindow::on_saveConfigButton_clicked()
         errorMsg += "恒温箱端口格式无效（需以COM开头）；";
     } else {
         settings.setValue("humidity/com_port", humidityCom);  // 写入配置
+    }
+
+    // ================== 【新增】保存伺服电机配置 ==================
+    if (ui->servoComEdit) {
+        QString servoCom = ui->servoComEdit->text().trimmed();
+        if (!servoCom.isEmpty() && servoCom.startsWith("COM", Qt::CaseInsensitive)) {
+            m_settings->setValue("servo/com_port", servoCom);
+        } else {
+            // isSuccess = false; // 可选：是否严格卡控
+            // errorMsg += "伺服电机端口无效；";
+            qWarning() << "伺服电机端口输入无效，未保存";
+        }
     }
 
     // ====== 新增：保存两个路径输入框的内容到配置文件 ======
@@ -3376,4 +3400,126 @@ CalibrationManager::InfraredData MainWindow::getIrAverage(const QString& comPort
     return result;
 }
 
+void MainWindow::setupServoControls()
+{
+    // A. 填充串口下拉框
+    ui->COMcomboBox_3->clear();
+    const auto ports = QSerialPortInfo::availablePorts();
+    for (const QSerialPortInfo &port : ports) {
+        ui->COMcomboBox_3->addItem(port.portName());
+    }
 
+    // B. 恢复上次保存的端口
+    QString lastPort = m_settings->value("servo/com_port", "COM1").toString();
+    ui->COMcomboBox_3->setCurrentText(lastPort);
+
+    // C. 初始化状态标签样式
+    ui->statusLabel_4->setText("未连接");
+    ui->statusLabel_4->setAlignment(Qt::AlignCenter);
+    ui->statusLabel_4->setStyleSheet(
+        "QLabel { background-color: #999999; border-radius: 4px; color: white; padding: 2px; font-weight: bold; }"
+        );
+
+    // D. 连接信号槽
+    // "打开/关闭" 按钮
+    connect(ui->OpenComButton_3, &QPushButton::clicked, this, &MainWindow::onOpenServoComClicked);
+
+    // "下一个" 按钮 (控制电机转动)
+    connect(ui->nextSensorButton, &QPushButton::clicked, this, &MainWindow::onRotateServoClicked);
+
+    // 端口改变时自动保存到 config.ini
+    connect(ui->COMcomboBox_3, &QComboBox::currentTextChanged, this, &MainWindow::updateServoPortComboBox);
+
+    // ================== 【新增】启动时自动连接逻辑 ==================
+    if (!lastPort.isEmpty()) {
+        // 检查该端口是否真实存在
+        bool portExists = false;
+        for(int i = 0; i < ui->COMcomboBox_3->count(); i++) {
+            if(ui->COMcomboBox_3->itemText(i) == lastPort) {
+                portExists = true;
+                break;
+            }
+        }
+
+        if (portExists) {
+            int baudRate = m_settings->value("servo/baud_rate", 9600).toInt();
+            qDebug() << "尝试自动连接伺服电机:" << lastPort << "波特率:" << baudRate;
+
+            // 尝试连接
+            if (m_servoController->connectDevice(lastPort, baudRate)) {
+                // 连接成功，更新UI状态
+                ui->OpenComButton_3->setText("关闭");
+                ui->OpenComButton_3->setChecked(true); // 你的UI里设置了 checkable=true
+                ui->COMcomboBox_3->setEnabled(false);
+                ui->statusLabel_4->setText("已连接");
+                ui->statusLabel_4->setStyleSheet(
+                    "QLabel { background-color: #00FF00; border-radius: 4px; color: black; padding: 2px; font-weight: bold; }"
+                    );
+                ui->statusbar->showMessage(QString("伺服电机自动连接成功: %1").arg(lastPort), 3000);
+            } else {
+                qWarning() << "自动连接伺服电机失败";
+                // 失败保持默认状态，不弹窗打扰用户
+            }
+        }
+    }
+}
+
+// 打开/关闭串口按钮处理
+void MainWindow::onOpenServoComClicked()
+{
+    if (!m_servoController) return;
+
+    // 检查按钮状态（因为它是 checkable 的，checked=true 表示按下了“打开”）
+    bool shouldOpen = ui->OpenComButton_3->isChecked();
+
+    if (shouldOpen) {
+        // === 执行打开逻辑 ===
+        QString portName = ui->COMcomboBox_3->currentText();
+        int baudRate = m_settings->value("servo/baud_rate", 9600).toInt();
+
+        if (m_servoController->connectDevice(portName, baudRate)) {
+            ui->OpenComButton_3->setText("关闭");
+            ui->COMcomboBox_3->setEnabled(false);
+            ui->statusLabel_4->setText("已连接");
+            ui->statusLabel_4->setStyleSheet("QLabel { background-color: #00FF00; border-radius: 4px; color: black; padding: 2px; font-weight: bold; }");
+
+            // 保存配置
+            m_settings->setValue("servo/com_port", portName);
+        } else {
+            // 连接失败，恢复按钮状态
+            ui->OpenComButton_3->setChecked(false);
+            QMessageBox::warning(this, "连接失败", "无法打开伺服电机串口！\n请检查串口是否被占用或线缆是否连接。");
+        }
+    } else {
+        // === 执行关闭逻辑 ===
+        m_servoController->disconnectDevice();
+
+        ui->OpenComButton_3->setText("打开");
+        ui->COMcomboBox_3->setEnabled(true);
+        ui->statusLabel_4->setText("未连接");
+        ui->statusLabel_4->setStyleSheet("QLabel { background-color: #999999; border-radius: 4px; color: white; padding: 2px; font-weight: bold; }");
+    }
+}
+
+// "下一个" 按钮处理 (顺时针转40度)
+void MainWindow::onRotateServoClicked()
+{
+    if (!m_servoController) return;
+
+    if (m_servoController->isConnected()) {
+        // 发送相对运动指令
+        m_servoController->moveRelative(40.0);
+        ui->statusbar->showMessage("电机指令：顺转40度 (切换下一个)", 2000);
+    } else {
+        QMessageBox::warning(this, "操作失败", "伺服电机未连接，请先打开串口！");
+    }
+}
+
+// 端口选择改变时自动更新配置
+void MainWindow::updateServoPortComboBox()
+{
+    QString currentPort = ui->COMcomboBox_3->currentText();
+    if (!currentPort.isEmpty()) {
+        m_settings->setValue("servo/com_port", currentPort);
+    }
+}

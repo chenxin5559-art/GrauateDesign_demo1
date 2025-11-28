@@ -619,8 +619,6 @@ void MainWindow::setupHumidityControls() {
     // 初始禁用操作按钮
     ui->setTempButton_2->setEnabled(false);
     ui->startStopButton_2->setEnabled(false);
-    ui->previousSensorButton->setEnabled(false);
-    ui->nextSensorButton->setEnabled(false);
     ui->openWindowButton->setEnabled(false);
 
     // 手动设置statusLabel_2的初始样式（新增）
@@ -654,24 +652,6 @@ void MainWindow::setupHumidityControls() {
     ui->startStopButton_2->setCheckable(true);
     connect(ui->startStopButton_2, &QPushButton::clicked, this, &MainWindow::onStartStopButtonClicked);
 
-    connect(ui->previousSensorButton, &QPushButton::clicked, this, [this]() {
-        if (m_servoController && m_servoController->isConnected()) {
-            m_servoController->moveRelative(-40.0); // 假设你在Servo类里实现了这个，或者手动发指令
-            // 如果Servo类里只实现了moveToAbsolute，这里可以先不做，或者加上moveRelative的实现
-        } else {
-            QMessageBox::warning(this, "提示", "伺服电机未连接");
-        }
-    });
-
-    // "下一个"按钮 -> 顺时针转40度
-    connect(ui->nextSensorButton, &QPushButton::clicked, this, [this]() {
-        if (m_servoController && m_servoController->isConnected()) {
-            m_servoController->moveRelative(40.0);
-        } else {
-            QMessageBox::warning(this, "提示", "伺服电机未连接");
-        }
-    });
-
     connect(ui->openWindowButton, &QPushButton::clicked, this, &MainWindow::onToggleCalibrationWindowClicked);
 
     connect(humidityTimer, &QTimer::timeout, m_humidityController, &HumidityController::readCurrentTemperature);
@@ -702,8 +682,6 @@ void MainWindow::onHumidityConnectionStatusChanged(bool connected) {
         ui->masterControlButton_2->setChecked(false);
         ui->setTempButton_2->setEnabled(false);
         ui->startStopButton_2->setEnabled(false);
-        ui->previousSensorButton->setEnabled(false);
-        ui->nextSensorButton->setEnabled(false);
         ui->openWindowButton->setEnabled(false);
         humidityTimer->stop();
         qDebug() << "湿度定时器已停止";
@@ -734,8 +712,6 @@ void MainWindow::onHumidityMasterControlChanged(bool acquired) {
         // 显式禁用所有操作按钮（与初始状态一致）
         ui->setTempButton_2->setEnabled(false);
         ui->startStopButton_2->setEnabled(false);
-        ui->previousSensorButton->setEnabled(false);
-        ui->nextSensorButton->setEnabled(false);
         ui->openWindowButton->setEnabled(false);
 
         // 恢复按钮文本为“获取控制”
@@ -3424,15 +3400,50 @@ void MainWindow::setupServoControls()
     // "打开/关闭" 按钮
     connect(ui->OpenComButton_3, &QPushButton::clicked, this, &MainWindow::onOpenServoComClicked);
 
-    // "下一个" 按钮 (控制电机转动)
-    connect(ui->nextSensorButton, &QPushButton::clicked, this, &MainWindow::onRotateServoClicked);
+    // ================== 【修改点：动态读取角度微调】 ==================
+
+    // 1. "上一个" 按钮 -> 逆时针微调 (读取 degreeInput)
+    disconnect(ui->previousSensorButton, &QPushButton::clicked, nullptr, nullptr);
+    connect(ui->previousSensorButton, &QPushButton::clicked, this, [this]() {
+        if (m_servoController && m_servoController->isConnected()) {
+            // 获取输入框的角度值
+            bool ok;
+            double angle = ui->degreeInput->text().toDouble(&ok);
+            // 如果输入无效或<=0，默认设为5度
+            if (!ok || angle <= 0) angle = 5.0;
+
+            // 发送负向指令
+            m_servoController->moveRelative(-angle);
+            ui->statusbar->showMessage(QString("电机微调：逆时针 %1 度").arg(angle), 1000);
+        } else {
+            ui->statusbar->showMessage("操作失败：伺服电机未连接", 2000);
+        }
+    });
+
+    // 2. "下一个" 按钮 -> 顺时针微调 (读取 degreeInput)
+    disconnect(ui->nextSensorButton, &QPushButton::clicked, nullptr, nullptr);
+    connect(ui->nextSensorButton, &QPushButton::clicked, this, [this]() {
+        if (m_servoController && m_servoController->isConnected()) {
+            // 获取输入框的角度值
+            bool ok;
+            double angle = ui->degreeInput->text().toDouble(&ok);
+            if (!ok || angle <= 0) angle = 5.0;
+
+            // 发送正向指令
+            m_servoController->moveRelative(angle);
+            ui->statusbar->showMessage(QString("电机微调：顺时针 %1 度").arg(angle), 1000);
+        } else {
+            ui->statusbar->showMessage("操作失败：伺服电机未连接", 2000);
+        }
+    });
+
+    // ================== 【修改结束】 ==================
 
     // 端口改变时自动保存到 config.ini
     connect(ui->COMcomboBox_3, &QComboBox::currentTextChanged, this, &MainWindow::updateServoPortComboBox);
 
-    // ================== 【新增】启动时自动连接逻辑 ==================
+    // ... (保留自动连接逻辑) ...
     if (!lastPort.isEmpty()) {
-        // 检查该端口是否真实存在
         bool portExists = false;
         for(int i = 0; i < ui->COMcomboBox_3->count(); i++) {
             if(ui->COMcomboBox_3->itemText(i) == lastPort) {
@@ -3443,22 +3454,18 @@ void MainWindow::setupServoControls()
 
         if (portExists) {
             int baudRate = m_settings->value("servo/baud_rate", 9600).toInt();
-            qDebug() << "尝试自动连接伺服电机:" << lastPort << "波特率:" << baudRate;
-
             // 尝试连接
             if (m_servoController->connectDevice(lastPort, baudRate)) {
-                // 连接成功，更新UI状态
                 ui->OpenComButton_3->setText("关闭");
-                ui->OpenComButton_3->setChecked(true); // 你的UI里设置了 checkable=true
+                ui->OpenComButton_3->setChecked(true);
                 ui->COMcomboBox_3->setEnabled(false);
                 ui->statusLabel_4->setText("已连接");
-                ui->statusLabel_4->setStyleSheet(
-                    "QLabel { background-color: #00FF00; border-radius: 4px; color: black; padding: 2px; font-weight: bold; }"
-                    );
+                ui->statusLabel_4->setStyleSheet("QLabel { background-color: #00FF00; border-radius: 4px; color: black; padding: 2px; font-weight: bold; }");
                 ui->statusbar->showMessage(QString("伺服电机自动连接成功: %1").arg(lastPort), 3000);
             } else {
-                qWarning() << "自动连接伺服电机失败";
-                // 失败保持默认状态，不弹窗打扰用户
+                // 【新增】连接失败弹出提示
+                QMessageBox::warning(this, "连接提示",
+                                     QString("无法自动连接伺服电机 (端口: %1)\n请检查设备连接或端口占用情况。").arg(lastPort));
             }
         }
     }
@@ -3498,20 +3505,6 @@ void MainWindow::onOpenServoComClicked()
         ui->COMcomboBox_3->setEnabled(true);
         ui->statusLabel_4->setText("未连接");
         ui->statusLabel_4->setStyleSheet("QLabel { background-color: #999999; border-radius: 4px; color: white; padding: 2px; font-weight: bold; }");
-    }
-}
-
-// "下一个" 按钮处理 (顺时针转40度)
-void MainWindow::onRotateServoClicked()
-{
-    if (!m_servoController) return;
-
-    if (m_servoController->isConnected()) {
-        // 发送相对运动指令
-        m_servoController->moveRelative(40.0);
-        ui->statusbar->showMessage("电机指令：顺转40度 (切换下一个)", 2000);
-    } else {
-        QMessageBox::warning(this, "操作失败", "伺服电机未连接，请先打开串口！");
     }
 }
 

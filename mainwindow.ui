@@ -1321,7 +1321,7 @@ QProgressBar::chunk {
           <rect>
            <x>20</x>
            <y>170</y>
-           <width>422</width>
+           <width>551</width>
            <height>66</height>
           </rect>
          </property>
@@ -1338,7 +1338,26 @@ QProgressBar::chunk {
              </font>
             </property>
             <property name="text">
-             <string>更换测温仪：</string>
+             <string>电机控制：</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="degreeInput">
+            <property name="tabletTracking">
+             <bool>false</bool>
+            </property>
+            <property name="autoFillBackground">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="frame">
+             <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>请输入度数</string>
             </property>
            </widget>
           </item>
@@ -1357,7 +1376,7 @@ QProgressBar::chunk {
              <string notr="true"/>
             </property>
             <property name="text">
-             <string>上一个</string>
+             <string>逆时针</string>
             </property>
            </widget>
           </item>
@@ -1376,7 +1395,7 @@ QProgressBar::chunk {
              <string notr="true"/>
             </property>
             <property name="text">
-             <string>下一个</string>
+             <string>顺时针</string>
             </property>
            </widget>
           </item>

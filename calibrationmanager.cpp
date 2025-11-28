@@ -47,6 +47,9 @@ void CalibrationManager::startCalibration(const QVector<float> &blackbodyTempPoi
         return;
     }
 
+    emit currentOperationChanged("正在复位电机零点，请稍候...");
+    m_servo->resetZeroPoint();
+
     m_currentState = Running;
     m_paused = false;
     m_canceling = false;
@@ -59,6 +62,8 @@ void CalibrationManager::startCalibration(const QVector<float> &blackbodyTempPoi
 
     m_blackbodyController->setMasterControl(true);
     m_humidityController->setMasterControl(true);
+
+    m_servo->moveToZero();
 
     emit calibrationProgress(0);
     calibrateNextPoint(0);

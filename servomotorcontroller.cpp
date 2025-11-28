@@ -1,13 +1,13 @@
-#include "ServoMotorController.h"
+#include "servomotorcontroller.h"
 #include <QThread>
+#include <QCoreApplication>
 
 ServoMotorController::ServoMotorController(QObject *parent)
     : QObject(parent), m_serial(new QSerialPort(this)), m_pollTimer(new QTimer(this))
 {
     // 配置轮询定时器，用于检查电机是否到位
-    m_pollTimer->setInterval(200); // 200ms查询一次
+    m_pollTimer->setInterval(200);
     connect(m_pollTimer, &QTimer::timeout, this, &ServoMotorController::checkPositionStatus);
-
     connect(m_serial, &QSerialPort::readyRead, this, &ServoMotorController::onDataReceived);
 }
 
@@ -47,58 +47,118 @@ bool ServoMotorController::isConnected() const {
 
 void ServoMotorController::sendCommand(const QString &cmd) {
     if (!isConnected()) return;
-
-    // 关键：根据要求添加回车换行符
     QByteArray data = (cmd + "\r\n").toLatin1();
     m_serial->write(data);
     m_serial->waitForBytesWritten(50);
-    // emit logMessage("发送电机指令: " + cmd);
+    // 稍微延时防止指令粘包
+    QThread::msleep(20);
+}
+
+// 【关键】发送全套初始化参数（防飞车配置）
+void ServoMotorController::initDriverParameters() {
+    emit logMessage("正在初始化电机参数...");
+
+    sendCommand("s r0xa4 0xffff"); // 清除错误
+    sendCommand("s r0xe3 100");    // 位置环增益倍率
+    sendCommand("s r0x21 200");    // 峰值电流 2A
+    sendCommand("s r0x22 100");    // 连续电流 1A
+    sendCommand("s r0x30 1000");   // 位置比例增益
+    sendCommand("s r0xcc 100000"); // 加速度
+    sendCommand("s r0xcd 100000"); // 减速度
+    sendCommand("s r0xcb 1310720");// 最大速度 (约1转/秒)
+    sendCommand("s r0xc8 256");    // 【重要】设置为相对运动模式
+    sendCommand("s r0x24 21");     // 使能位置模式
+
+    emit logMessage("电机参数初始化完成，处于相对运动模式");
+}
+
+// 【关键】复位零点逻辑
+void ServoMotorController::resetZeroPoint() {
+    if (!isConnected()) return;
+
+    emit logMessage("执行零点复位...");
+
+    // 1. 发送复位指令，驱动器会重启，内部计数器归零
+    sendCommand("r");
+
+    // 2. 必须等待驱动器重启完成 (阻塞2秒)
+    // 注意：在主线程阻塞会卡UI，但标定开始前卡2秒是可以接受的
+    QThread::msleep(2000);
+
+    // 3. 重启后参数丢失，必须重新初始化
+    initDriverParameters();
+
+    // 4. 重置软件计数器
+    m_currentSoftwareCounts = 0;
+    m_targetSoftwareCounts = 0;
+
+    emit logMessage("零点复位完成，当前位置设定为 0");
 }
 
 int ServoMotorController::angleToCounts(double angle) {
-    // 角度转脉冲： (角度 / 360) * 1310720
     return static_cast<int>((angle / 360.0) * COUNTS_PER_REV);
 }
 
-void ServoMotorController::moveToAbsolute(double angle) {
+double ServoMotorController::currentAngle() const {
+    return (double)m_currentSoftwareCounts / COUNTS_PER_REV * 360.0;
+}
+
+// 纯相对运动指令
+void ServoMotorController::moveRelative(double angle) {
     if (!isConnected()) return;
 
-    m_targetCounts = angleToCounts(angle);
+    int counts = angleToCounts(angle);
+    if (counts == 0) {
+        emit positionReached();
+        return;
+    }
 
-    // 1. 设置目标位置 (寄存器 0x3d)
-    sendCommand(QString("s r0x3d %1").arg(m_targetCounts));
+    // 1. 设置相对位移量 (0xca)
+    sendCommand(QString("s r0xca %1").arg(counts));
 
-    // 2. 稍作延时确保指令被解析(可选)
-    QThread::msleep(20);
-
-    // 3. 发送触发运动指令 (t 1)
+    // 2. 触发运动 (t 1)
     sendCommand("t 1");
 
+    // 3. 更新软件记录的目标位置
+    // 注意：这里我们假设驱动器一定会走到。
+    // 因为驱动器内部计数器被清零过，我们维护一个平行的软件计数器
+    m_currentSoftwareCounts += counts;
+    m_targetSoftwareCounts = m_currentSoftwareCounts;
+
     m_isMoving = true;
-    m_pollTimer->start(); // 开始轮询位置
-    emit logMessage(QString("电机开始运动至: %1度 (%2 counts)").arg(angle).arg(m_targetCounts));
+    m_pollTimer->start();
+    emit logMessage(QString("电机相对运动: %1度 (%2 counts)").arg(angle).arg(counts));
 }
 
-void ServoMotorController::moveRelative(double angle) {
-    // 相对运动无法简单直接读取当前位置来计算（因为读取有延迟），
-    // 建议在自动流程中维护一个 m_currentAngle 变量，调用 moveToAbsolute。
-    // 这里为了演示，假设你有办法获取当前位置，或者仅用于调试。
-    // 如果在自动流程中，建议只使用 moveToAbsolute 配合累加器。
-    emit errorOccurred("建议使用绝对定位 moveToAbsolute 以确保精度");
+// 通过相对运动模拟绝对定位
+void ServoMotorController::moveToAbsolute(double targetAngle) {
+    // 1. 计算当前角度
+    double currAngle = currentAngle();
+
+    // 2. 计算差值
+    double delta = targetAngle - currAngle;
+
+    // 3. 执行相对运动
+    if (qAbs(delta) > 0.01) {
+        moveRelative(delta);
+    } else {
+        emit positionReached();
+    }
 }
 
+// 回零：计算反向距离并回退
 void ServoMotorController::moveToZero() {
     moveToAbsolute(0.0);
 }
 
 void ServoMotorController::stop() {
-    // 发送急停指令，具体看手册，通常可能是设速度为0或特定指令
-    // 这里假设重新设置位置为当前位置来停止，或者复位
-    // sendCommand("r"); // 视手册复位指令而定
+    sendCommand("s r0x24 0"); // 去能/停止
+    m_isMoving = false;
+    m_pollTimer->stop();
 }
 
 void ServoMotorController::checkPositionStatus() {
-    // 发送查询实际位置指令 (0x32)
+    // 查询实际位置 (0x32)
     sendCommand("g r0x32");
 }
 
@@ -106,18 +166,25 @@ void ServoMotorController::onDataReceived() {
     QByteArray data = m_serial->readAll();
     QString response = QString::fromLatin1(data).trimmed();
 
-    // 解析返回值，例如 "v 123456"
+    // 调试输出，方便你看日志
+    // qDebug() << "Servo Resp:" << response;
+
     if (response.startsWith("v ") && m_isMoving) {
         bool ok;
-        // 提取数值部分
-        int currentCounts = response.mid(2).toInt(&ok);
+        // 注意：这里读到的是驱动器的绝对位置
+        // 因为我们在 resetZeroPoint 时发送了 r，驱动器归零了
+        // 所以理论上 驱动器读数 ≈ m_targetSoftwareCounts
+        long long currentDriverCounts = response.mid(2).toLongLong(&ok);
+
         if (ok) {
-            // 判断是否到位（允许一定误差）
-            if (qAbs(currentCounts - m_targetCounts) <= POSITION_TOLERANCE) {
+            long long diff = qAbs(currentDriverCounts - m_targetSoftwareCounts);
+
+            // 判断到位
+            if (diff <= POSITION_TOLERANCE) {
                 m_isMoving = false;
                 m_pollTimer->stop();
-                emit logMessage("电机已到位");
-                emit positionReached(); // 发送信号通知上层逻辑
+                emit logMessage(QString("电机到位 (误差: %1)").arg(diff));
+                emit positionReached();
             }
         }
     }

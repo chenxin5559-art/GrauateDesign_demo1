@@ -127,7 +127,6 @@ private slots:
 
     void setupServoControls();      // 初始化UI和自动连接
     void onOpenServoComClicked();   // 打开/关闭按钮槽函数
-    void onRotateServoClicked();    // 下一个测温仪按钮槽函数
     void updateServoPortComboBox(); // 端口改变时保存配置
 
 private:

@@ -9,6 +9,19 @@ ServoMotorController::ServoMotorController(QObject *parent)
     m_pollTimer->setInterval(200);
     connect(m_pollTimer, &QTimer::timeout, this, &ServoMotorController::checkPositionStatus);
     connect(m_serial, &QSerialPort::readyRead, this, &ServoMotorController::onDataReceived);
+
+    // 【新增】超时定时器：防止电机到位了但软件没识别到
+    m_timeoutTimer = new QTimer(this);
+    m_timeoutTimer->setSingleShot(true);
+    connect(m_timeoutTimer, &QTimer::timeout, this, [this](){
+        if(m_isMoving) {
+            m_isMoving = false;
+            m_pollTimer->stop();
+            // 超时强制认为到位，保证流程不卡死
+            emit logMessage("警告：电机运动等待超时，强制跳过等待");
+            emit positionReached();
+        }
+    });
 }
 
 ServoMotorController::~ServoMotorController() {
@@ -58,41 +71,56 @@ void ServoMotorController::sendCommand(const QString &cmd) {
 void ServoMotorController::initDriverParameters() {
     emit logMessage("正在初始化电机参数...");
 
-    sendCommand("s r0xa4 0xffff"); // 清除错误
-    sendCommand("s r0xe3 100");    // 位置环增益倍率
-    sendCommand("s r0x21 200");    // 峰值电流 2A
-    sendCommand("s r0x22 100");    // 连续电流 1A
-    sendCommand("s r0x30 1000");   // 位置比例增益
-    sendCommand("s r0xcc 100000"); // 加速度
-    sendCommand("s r0xcd 100000"); // 减速度
-    sendCommand("s r0xcb 1310720");// 最大速度 (约1转/秒)
-    sendCommand("s r0xc8 256");    // 【重要】设置为相对运动模式
-    sendCommand("s r0x24 21");     // 使能位置模式
+    sendCommand("s r0xa4 0xffff"); // 1. 先清除之前的错误
+    //sendCommand("s r0xe3 100");    // 增益倍率
 
-    emit logMessage("电机参数初始化完成，处于相对运动模式");
+    // 【修改点1】提高电流限制 (如果您的电机额定电流允许，可以设大一点)
+    // 例如设为 3A (300) 或 4A (400)，之前是 200
+    //sendCommand("s r0x21 400");    // 峰值电流: 4.00A
+    //sendCommand("s r0x22 200");    // 连续电流: 2.00A
+
+    //sendCommand("s r0x30 1000");   // 位置比例增益
+
+    // 【修改点2】降低加速度 (让起步更柔和，防止“闪了腰”)
+    // 之前是 100000，建议改小，例如 20000 或 50000
+    sendCommand("s r0xcc 20000");  // 加速度: 2000 counts/s^2
+    sendCommand("s r0xcd 20000");  // 减速度: 2000 counts/s^2
+
+    sendCommand("s r0xcb 1310720");// 最大速度
+    sendCommand("s r0xc8 256");    // 相对运动模式
+    sendCommand("s r0x24 21");     // 使能
+
+    emit logMessage("电机参数初始化完成");
 }
 
 // 【关键】复位零点逻辑
 void ServoMotorController::resetZeroPoint() {
     if (!isConnected()) return;
 
-    emit logMessage("执行零点复位...");
+    emit logMessage("正在执行位置清零...");
 
-    // 1. 发送复位指令，驱动器会重启，内部计数器归零
-    sendCommand("r");
+    // 1. 清除可能存在的报错 (Fault)
+    // 这一步必须做，防止之前跳闸导致无法写入
+    sendCommand("s r0xa4 0xffff");
+    QThread::msleep(50);
 
-    // 2. 必须等待驱动器重启完成 (阻塞2秒)
-    // 注意：在主线程阻塞会卡UI，但标定开始前卡2秒是可以接受的
-    QThread::msleep(2000);
+    // 2. 【核心修改】强制将电机内部的“实际位置寄存器”设为 0
+    // 依据：您提供的日志证明 s r0x32 0 是有效的
+    sendCommand("s r0x32 0");
+    QThread::msleep(100); // 给一点点时间让设置生效
 
-    // 3. 重启后参数丢失，必须重新初始化
+    // 3. (可选) 如果不放心，可以再发一次初始化参数确保电流够大
+    // 但如果您之前已经发过且没掉电，这里不发也可以
     initDriverParameters();
 
-    // 4. 重置软件计数器
+    // 4. 将软件内部的计数器也同步归零
     m_currentSoftwareCounts = 0;
     m_targetSoftwareCounts = 0;
 
-    emit logMessage("零点复位完成，当前位置设定为 0");
+    // 5. (可选调试) 查一下是不是真的变0了
+    // sendCommand("g r0x32");
+
+    emit logMessage("零点复位完成：硬件坐标已强制置 0");
 }
 
 int ServoMotorController::angleToCounts(double angle) {

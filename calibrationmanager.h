@@ -8,7 +8,6 @@
 #include "blackbodycontroller.h"
 #include "humiditycontroller.h"
 #include <QTimer>
-#include <QStringList>
 #include "ServoMotorController.h"
 
 // 定义任务结构体
@@ -21,38 +20,30 @@ class CalibrationManager : public QObject
 {
     Q_OBJECT
 public:
-
+    // 红外数据结构
     struct InfraredData {
-        QString type; // 设备类型（"单头"/"多头"）
+        QString type;
         QVector<float> toAvgs;
         QVector<float> taAvgs;
         QVector<float> lcAvgs;
     };
 
+    // 最终记录结构
     struct CalibrationRecord {
-        float blackbodyTarget; // 黑体炉目标温度
-        QDateTime measureTime; // 测量时间
-        float blackbodyAvg;    // 黑体炉最后一分钟平均温度
-        QString comPort;       // 红外测温仪COM口
-        InfraredData irData;   // 红外数据
-        int physicalPosition;  // 物理位置
+        float blackbodyTarget; // 设定温度
+        float blackbodyReal;   // 【新增】测量时刻的黑体实际温度
+        QDateTime measureTime; // 【新增】第5分钟的时间点
+        QString comPort;
+        InfraredData irData;
+        int physicalPosition;
     };
 
-    // 保存当前批次的基准数据
-    struct BatchReferenceData {
-        float blackbodyTarget;
-        float blackbodyAvg;
-        QDateTime measureTime;
-    };
-
-    // 定义流程阶段
+    // 流程阶段
     enum PausedStage {
         None,
-        StabilityCheck,
-        WaitingForNextMinute,
-        WaitingSixMinutes,
-        MinuteSampling,
-        ServoMoving
+        StabilityCheck,     // 1. 等待环境稳定
+        ServoMoving,        // 2. 电机移动中
+        SensorStabilizing   // 3. 【新增】传感器到位后等待5分钟
     };
 
     enum State {
@@ -68,7 +59,6 @@ public:
     ~CalibrationManager();
 
     void startCalibration(const QVector<float> &blackbodyTempPoints, const QVector<float> &humidityTempPoints);
-
     void pauseCalibration();
     void resumeCalibration();
     void cancelCalibration();
@@ -79,6 +69,9 @@ public:
     void setServoController(ServoMotorController *servo);
     void setMeasurementQueue(const QVector<SensorTask>& queue);
 
+    // 提供给MainWindow直接调用的回调（解决invokeMethod问题）
+    void onIrAverageReceived(const QString& comPort, const CalibrationManager::InfraredData& irData);
+
 signals:
     void calibrationFinished(const QVector<CalibrationRecord> &calibrationData);
     void errorOccurred(const QString &error);
@@ -86,29 +79,20 @@ signals:
     void calibrationProgress(int progress);
     void stateChanged(State newState);
     void countdownUpdated(int secondsRemaining, const QString &stage);
+
+    // 红外控制信号
     void irMeasurementStarted(const QString &currentComPort);
     void irMeasurementStopped();
     void requestIrAverage(const QString& comPort, QObject* receiver);
 
 private slots:
-    void checkStability(int index);
-    void startMeasurement(int index);
-    void recordMeasurement(int index);
+    void checkStability(int index);         // 检查环境稳定性
+    void onServoInPosition();               // 电机到位
+    void onSensorStabilizeTimeout();        // 【新增】5分钟等待结束
 
-    void calibrateNextPoint(int index);
-    void generateCalibrationReport();
-    void startWaitingSixMinutes(int index);
-
-    void onCountdownTimerTimeout();
-    void onWaitNextMinuteTimeout();
-
-    // 【新增】将原来Lambda里的逻辑提取为槽函数
-    void onFiveMinuteTimeout();   // 5分钟等待结束，开始采样
-    void onSixMinuteTimeout();    // 6分钟等待结束，记录数据
-    void onMinuteSampleTimeout(); // 每秒采样一次
-
-    void onIrAverageReceived(const QString& comPort, const CalibrationManager::InfraredData& irData);
-    void onServoInPosition();
+    void calibrateNextPoint(int index);     // 下一个温度点
+    void generateCalibrationReport();       // 生成报告
+    void onCountdownTimerTimeout();         // UI倒计时刷新
 
 private:
     BlackbodyController *m_blackbodyController;
@@ -119,40 +103,35 @@ private:
     QVector<float> m_humidityTempPoints;
     QVector<CalibrationRecord> m_calibrationData;
 
-    QTimer m_timer;
-    QTimer m_fiveMinuteTimer;
-    QTimer m_sixMinuteTimer;
-    QTimer m_minuteSampleTimer;
-    QTimer m_countdownTimer;
-    QTimer m_waitNextMinuteTimer;
+    QTimer m_stabilityTimer;        // 稳定性检查定时器
+    QTimer m_sensorStabilizeTimer;  // 【新增】5分钟等待定时器
+    QTimer m_countdownTimer;        // UI倒计时
 
-    QVector<QPair<float, float>> m_samples;
-    QVector<float> m_humiditySamples;
-    QVector<float> m_minuteSamples;
+    QVector<float> m_stabilitySamples;
     int m_sampleCount = 0;
 
     State m_currentState = Idle;
     PausedStage m_pausedStage = None;
     bool m_paused = false;
     bool m_canceling = false;
-    int m_currentIndex = -1;
     QString currentOperation;
 
-    QDateTime m_startSixMinuteTime;
-    QDateTime m_currentWaitStartTime;
-    int m_totalWaitSeconds = 0;
-    QString m_currentCountdownStage;
-    int m_currentWaitIndex = 0;
-
+    // 任务控制变量
+    int m_currentTempPointIndex = 0;
     QVector<SensorTask> m_taskQueue;
     int m_currentTaskIndex = 0;
-    BatchReferenceData m_currentBatchData;
-    const double DEGREES_PER_SLOT = 40.0;
+    const double DEGREES_PER_SLOT = 36.0; // 360度/10个间隔
 
-    void startSensorSequence();
-    void processCurrentTask();
-    void finishSequence();
+    // 倒计时显示辅助
+    QDateTime m_waitStartTime;
+    int m_waitTotalSeconds = 0;
+    QString m_waitDescription;
+
+    void startSensorSequence();     // 开始一轮传感器测量
+    void processCurrentTask();      // 执行当前传感器任务
+    void finishSequence();          // 本轮结束收尾
 };
 
-#endif // CALIBRATIONMANAGER_H
+Q_DECLARE_METATYPE(CalibrationManager::InfraredData) // 注册元类型
 
+#endif // CALIBRATIONMANAGER_H

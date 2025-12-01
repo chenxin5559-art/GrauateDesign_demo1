@@ -27,6 +27,10 @@ public:
 
     double currentAngle() const;       // 获取当前软件记录的角度
 
+    void initDriverParameters(); // 发送全套初始化参数(电流、增益、速度)
+
+    QTimer *m_timeoutTimer;
+
 signals:
     void positionReached();            // 信号：已到达目标位置
     void errorOccurred(const QString &msg);
@@ -52,7 +56,7 @@ private:
     bool m_isMoving = false;
 
     void sendCommand(const QString &cmd);
-    void initDriverParameters(); // 发送全套初始化参数(电流、增益、速度)
+
     int angleToCounts(double angle);
 };
 

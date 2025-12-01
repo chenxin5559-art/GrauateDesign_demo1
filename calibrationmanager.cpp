@@ -1,24 +1,20 @@
 #include "calibrationmanager.h"
 #include <QMessageBox>
 #include <xlsxdocument.h>
-#include <QSettings>
-#include <QDir>
-#include <QMutex>
-#include <QElapsedTimer>
 #include <QDebug>
 #include <numeric>
+#include <algorithm> // for std::minmax_element
 
 CalibrationManager::CalibrationManager(BlackbodyController *blackbodyController, HumidityController *humidityController, QObject *parent)
     : QObject(parent), m_blackbodyController(blackbodyController), m_humidityController(humidityController)
 {
-    m_fiveMinuteTimer.setSingleShot(true);
-    m_sixMinuteTimer.setSingleShot(true);
+    // 初始化5分钟定时器
+    m_sensorStabilizeTimer.setSingleShot(true);
+    connect(&m_sensorStabilizeTimer, &QTimer::timeout, this, &CalibrationManager::onSensorStabilizeTimeout);
 
+    // 倒计时定时器
     m_countdownTimer.setInterval(1000);
     connect(&m_countdownTimer, &QTimer::timeout, this, &CalibrationManager::onCountdownTimerTimeout);
-
-    m_waitNextMinuteTimer.setSingleShot(true);
-    connect(&m_waitNextMinuteTimer, &QTimer::timeout, this, &CalibrationManager::onWaitNextMinuteTimeout);
 }
 
 CalibrationManager::~CalibrationManager() {}
@@ -30,12 +26,13 @@ void CalibrationManager::setServoController(ServoMotorController *servo) {
 
 void CalibrationManager::setMeasurementQueue(const QVector<SensorTask>& queue) {
     m_taskQueue = queue;
+    // 按位置排序 (1 -> 10)
     std::sort(m_taskQueue.begin(), m_taskQueue.end(), [](const SensorTask& a, const SensorTask& b){
         return a.position < b.position;
     });
-    qDebug() << "标定管理器已加载任务队列，设备数量：" << m_taskQueue.size();
 }
 
+// 1. 开始标校
 void CalibrationManager::startCalibration(const QVector<float> &blackbodyTempPoints, const QVector<float> &humidityTempPoints)
 {
     if (!m_servo || !m_servo->isConnected()) {
@@ -43,541 +40,361 @@ void CalibrationManager::startCalibration(const QVector<float> &blackbodyTempPoi
         return;
     }
     if (m_taskQueue.isEmpty()) {
-        emit errorOccurred("未配置测温仪任务队列！请检查配置文件中的 COM 口映射。");
+        emit errorOccurred("未配置测温仪任务队列！");
         return;
     }
-
-    emit currentOperationChanged("正在复位电机零点，请稍候...");
-    m_servo->resetZeroPoint();
 
     m_currentState = Running;
     m_paused = false;
     m_canceling = false;
-    m_currentIndex = 0;
     m_calibrationData.clear();
-
-    emit stateChanged(Running);
     m_blackbodyTempPoints = blackbodyTempPoints;
     m_humidityTempPoints = humidityTempPoints;
 
+    emit stateChanged(Running);
+    setCurrentOperation("初始化：正在复位电机零点...");
+
+    // 强制电机复位归零
+    m_servo->resetZeroPoint();
+    m_servo->moveToZero();
+
+    // 获取控制权
     m_blackbodyController->setMasterControl(true);
     m_humidityController->setMasterControl(true);
 
-    m_servo->moveToZero();
-
     emit calibrationProgress(0);
+
+    // 开始第一个温度点
     calibrateNextPoint(0);
 }
 
+// 2. 切换温度点
 void CalibrationManager::calibrateNextPoint(int index)
 {
-    m_currentIndex = index;
-
-    if (m_canceling || m_paused) return;
+    m_currentTempPointIndex = index;
 
     if (index >= m_blackbodyTempPoints.size()) {
-        setCurrentOperation("所有温度点标校完成，生成报告");
+        setCurrentOperation("所有温度点标校完成，正在生成报告...");
         generateCalibrationReport();
         return;
     }
 
-    float blackbodyTemp = m_blackbodyTempPoints[index];
-    float humidityTemp = m_humidityTempPoints[index];
+    float bbTemp = m_blackbodyTempPoints[index];
+    float humTemp = m_humidityTempPoints[index];
 
-    setCurrentOperation(QString("设置第%1个点 - 黑体炉：%2℃").arg(index + 1).arg(blackbodyTemp));
+    setCurrentOperation(QString("设置第 %1 个温度点：黑体炉 %2℃，恒温箱 %3℃").arg(index + 1).arg(bbTemp).arg(humTemp));
 
-    m_humidityController->setTargetTemperature(humidityTemp);
-    m_humidityController->setDeviceState(true);
-    m_blackbodyController->setTargetTemperature(blackbodyTemp);
+    // 设定温度
+    m_blackbodyController->setTargetTemperature(bbTemp);
     m_blackbodyController->setDeviceState(true);
 
-    if (m_servo) {
-        m_servo->moveToZero();
-    }
+    m_humidityController->setTargetTemperature(humTemp);
+    m_humidityController->setDeviceState(true);
 
+    // 电机回零等待
+    m_servo->moveToZero();
+
+    // 进入稳定性检查
     checkStability(index);
 }
 
+// 3. 稳定性检查 (稳定后 -> 打开窗口 -> 开始测量循环)
 void CalibrationManager::checkStability(int index)
 {
-    if (m_canceling) {
-        setCurrentOperation("标校已取消，停止稳定性检查");
-        return;
-    }
+    if (m_canceling || m_paused) return;
 
-    if (m_paused) {
-        setCurrentOperation("标校处于暂停状态，稳定性检查暂停");
-        return;
-    }
-
-    float blackbodyTemp = m_blackbodyTempPoints[index];
-    int windowSize = 150;
-    int sampleInterval = 2;
-
-    m_samples.clear();
-    m_humiditySamples.clear();
+    float targetTemp = m_blackbodyTempPoints[index];
+    m_stabilitySamples.clear();
     m_sampleCount = 0;
 
-    setCurrentOperation(QString("开始温度稳定性检查 - 窗口大小：%1次采样，采样间隔：%2秒")
-                            .arg(windowSize).arg(sampleInterval));
+    int windowSize = 15; // 采样窗口：15次 * 2秒 = 30秒
+    //int windowSize = 150; // 采样窗口：150次 * 2秒 = 5分钟
+    int interval = 2;     // 2秒一次
 
-    auto sampler = [this, index, blackbodyTemp, windowSize]() {
-        if (m_currentState == Running) {
-            m_pausedStage = StabilityCheck;
-        }
+    setCurrentOperation(QString("等待环境稳定 (目标: %1℃)...").arg(targetTemp));
+    m_pausedStage = StabilityCheck;
 
-        float currentBlackbodyTemp = m_blackbodyController->getCurrentTemperature();
-        float currentHumidityTemp = m_humidityController->getCurrentTemperature();
-        float currentHumidity = m_humidityController->getCurrentHumidity();
+    // 定义检查逻辑 lambda
+    auto checkFunc = [this, targetTemp, windowSize]() {
+        if (m_currentState != Running) return;
 
-        if (!qIsFinite(currentBlackbodyTemp)) {
-            QString error = QString("黑体炉测量值无效：%1℃").arg(currentBlackbodyTemp);
-            setCurrentOperation(error);
-            emit errorOccurred(error);
-            return;
-        }
+        float currentBB = m_blackbodyController->getCurrentTemperature();
 
-        m_samples.append(qMakePair(currentBlackbodyTemp, currentHumidityTemp));
-        m_humiditySamples.append(currentHumidity);
-
-        if (m_samples.size() > windowSize) {
-            m_samples.removeFirst();
-            m_humiditySamples.removeFirst();
-        }
-
+        // 记录数据
+        m_stabilitySamples.append(currentBB);
+        if (m_stabilitySamples.size() > windowSize) m_stabilitySamples.removeFirst();
         m_sampleCount++;
-        setCurrentOperation(QString("稳定性检查采样 #%1 - 黑体炉：%2℃").arg(m_sampleCount).arg(currentBlackbodyTemp));
 
-        if (m_samples.size() == windowSize) {
-            float minBlackbody = m_samples[0].first;
-            float maxBlackbody = m_samples[0].first;
-            bool blackbodyInRange = true;
+        // 仅为了显示进度
+        setCurrentOperation(QString("稳定性采样 #%1: %2℃").arg(m_sampleCount).arg(currentBB));
 
-            for (int i = 0; i < m_samples.size(); i++) {
-                if (qAbs(m_samples[i].first - blackbodyTemp) > 1.0) {
-                    blackbodyInRange = false;
-                }
-                if (m_samples[i].first < minBlackbody) minBlackbody = m_samples[i].first;
-                if (m_samples[i].first > maxBlackbody) maxBlackbody = m_samples[i].first;
-            }
+        // 判定逻辑
+        if (m_stabilitySamples.size() == windowSize) {
+            auto minmax = std::minmax_element(m_stabilitySamples.begin(), m_stabilitySamples.end());
+            float fluctuation = *minmax.second - *minmax.first;
+            float deviation = qAbs(currentBB - targetTemp);
 
-            float blackbodyFluctuation = maxBlackbody - minBlackbody;
-            bool blackbodyStable = blackbodyInRange && (blackbodyFluctuation < 0.1);
+            // 判定标准：偏差 < 1.0℃ 且 波动 < 0.1℃
+            if (deviation < 1.0 && fluctuation < 0.1) {
+                m_stabilityTimer.stop();
+                setCurrentOperation(QString("环境已稳定 (波动%1℃)，打开标定窗口...").arg(fluctuation, 0, 'f', 3));
 
-            if (blackbodyStable) {
-                setCurrentOperation(QString("黑体炉温度已稳定 - 波动：%1℃").arg(blackbodyFluctuation));
-                m_timer.stop();
-                m_samples.clear();
-                m_humiditySamples.clear();
-                m_sampleCount = 0;
-                startMeasurement(index);
+                // 【关键变更】稳定后直接打开窗口，并开始测量序列
+                m_humidityController->toggleCalibrationWindow(true);
+
+                // 延时2秒确保窗口指令发送，然后开始测量
+                QTimer::singleShot(2000, this, &CalibrationManager::startSensorSequence);
+
             } else {
-                QString reason = QString("黑体炉温度波动%1℃（目标范围±1℃，波动<0.1℃）").arg(blackbodyFluctuation);
-                setCurrentOperation(QString("未达到稳定条件：%1，继续采样").arg(reason));
+                // 继续等待
+                setCurrentOperation(QString("等待稳定: 当前%1℃, 偏差%2, 波动%3 (目标<0.1)").arg(currentBB).arg(deviation, 0, 'f', 2).arg(fluctuation, 0, 'f', 3));
             }
         }
     };
 
-    m_timer.disconnect();
-    m_timer.setInterval(sampleInterval * 1000);
-    connect(&m_timer, &QTimer::timeout, this, sampler);
-    m_pausedStage = StabilityCheck;
-    m_timer.start();
-    sampler();
+    m_stabilityTimer.disconnect();
+    connect(&m_stabilityTimer, &QTimer::timeout, this, checkFunc);
+    m_stabilityTimer.start(interval * 1000);
 }
 
-void CalibrationManager::startMeasurement(int index)
-{
-    if (m_canceling || m_paused) return;
-
-    setCurrentOperation(QString("开始第%1个温度点的正式测量，打开标定窗口").arg(index + 1));
-    m_humidityController->toggleCalibrationWindow(true);
-
-    QDateTime nextMinute = QDateTime::currentDateTime().addSecs(60);
-    nextMinute.setTime(QTime(nextMinute.time().hour(), nextMinute.time().minute(), 0));
-    int waitToNextMinute = QDateTime::currentDateTime().secsTo(nextMinute);
-
-    if (waitToNextMinute > 0) {
-        setCurrentOperation(QString("等待到下一分钟开始测量（%1秒后）").arg(waitToNextMinute));
-
-        m_pausedStage = WaitingForNextMinute;
-        m_currentWaitIndex = index;
-        m_currentWaitStartTime = QDateTime::currentDateTime();
-        m_totalWaitSeconds = waitToNextMinute;
-        m_currentCountdownStage = QString("等待到下一分钟开始第%1个温度点测量").arg(index + 1);
-
-        m_countdownTimer.start();
-        m_waitNextMinuteTimer.start(waitToNextMinute * 1000);
-    } else {
-        this->startWaitingSixMinutes(index);
-    }
-}
-
-// 【新增】将原来的Lambda逻辑提取为函数：5分钟等待结束
-void CalibrationManager::onFiveMinuteTimeout()
-{
-    QString stageDesc = QString("第%1个温度点最后1分钟采样").arg(m_currentIndex + 1);
-    setCurrentOperation(stageDesc + " - 开始采样");
-
-    m_pausedStage = MinuteSampling;
-    m_currentCountdownStage = stageDesc;
-    m_currentWaitStartTime = QDateTime::currentDateTime();
-    m_totalWaitSeconds = 60;
-
-    m_minuteSampleTimer.setInterval(1000);
-    // 先断开旧连接防止重复
-    disconnect(&m_minuteSampleTimer, nullptr, this, nullptr);
-    connect(&m_minuteSampleTimer, &QTimer::timeout, this, &CalibrationManager::onMinuteSampleTimeout);
-    m_minuteSampleTimer.start();
-}
-
-// 【新增】将原来的Lambda逻辑提取为函数：1秒采样
-void CalibrationManager::onMinuteSampleTimeout()
-{
-    if (m_currentState == Running || m_currentState == Paused) {
-        float currentTemp = m_blackbodyController->getCurrentTemperature();
-        m_minuteSamples.append(currentTemp);
-        setCurrentOperation(QString("第%1个温度点采样 #%2 - 温度：%3℃")
-                                .arg(m_currentIndex + 1).arg(m_minuteSamples.size()).arg(currentTemp));
-    }
-}
-
-// 【新增】将原来的Lambda逻辑提取为函数：6分钟等待结束
-void CalibrationManager::onSixMinuteTimeout()
-{
-    m_minuteSampleTimer.stop();
-    m_countdownTimer.stop();
-    m_pausedStage = None;
-    setCurrentOperation(QString("第%1个温度点 6分钟等待结束，准备执行多通道测量序列").arg(m_currentIndex + 1));
-
-    recordMeasurement(m_currentIndex);
-}
-
-void CalibrationManager::startWaitingSixMinutes(int index)
-{
-    // 停止旧定时器
-    m_fiveMinuteTimer.stop();
-    m_sixMinuteTimer.stop();
-    m_minuteSampleTimer.stop();
-    m_countdownTimer.stop();
-
-    // 断开旧连接
-    disconnect(&m_fiveMinuteTimer, nullptr, this, nullptr);
-    disconnect(&m_sixMinuteTimer, nullptr, this, nullptr);
-    disconnect(&m_minuteSampleTimer, nullptr, this, nullptr);
-
-    m_startSixMinuteTime = QDateTime::currentDateTime();
-    m_currentWaitStartTime = m_startSixMinuteTime;
-    m_totalWaitSeconds = 6 * 60;
-    m_minuteSamples.clear();
-
-    m_pausedStage = WaitingSixMinutes;
-    m_currentCountdownStage = QString("第%1个温度点 6分钟稳定等待").arg(index + 1);
-
-    setCurrentOperation(QString("%1 - 开始时间：%2").arg(m_currentCountdownStage).arg(m_startSixMinuteTime.toString("HH:mm:ss")));
-    m_countdownTimer.start();
-
-    // 连接新槽函数
-    connect(&m_fiveMinuteTimer, &QTimer::timeout, this, &CalibrationManager::onFiveMinuteTimeout);
-    connect(&m_sixMinuteTimer, &QTimer::timeout, this, &CalibrationManager::onSixMinuteTimeout);
-
-    m_fiveMinuteTimer.start(5 * 60 * 1000);
-    m_sixMinuteTimer.start(6 * 60 * 1000);
-}
-
-void CalibrationManager::recordMeasurement(int index)
-{
-    float bbAvg = 0.0f;
-    if (!m_minuteSamples.isEmpty()) {
-        bbAvg = std::accumulate(m_minuteSamples.begin(), m_minuteSamples.end(), 0.0f) / m_minuteSamples.size();
-    } else {
-        bbAvg = m_blackbodyController->getCurrentTemperature();
-    }
-
-    m_currentBatchData.blackbodyTarget = m_blackbodyTempPoints[index];
-    m_currentBatchData.blackbodyAvg = bbAvg;
-    m_currentBatchData.measureTime = QDateTime::currentDateTime();
-
-    setCurrentOperation(QString("温度点%1基准数据已记录(BB均值:%2)，开始执行多通道测量序列...")
-                            .arg(index + 1).arg(bbAvg));
-
-    startSensorSequence();
-}
-
+// 4. 开始测量序列
 void CalibrationManager::startSensorSequence() {
-    if (!m_servo || !m_servo->isConnected()) {
-        emit errorOccurred("伺服电机未连接，无法执行测量序列！");
-        return;
-    }
+    if (m_taskQueue.isEmpty()) return;
 
+    setCurrentOperation("开始执行多通道测量序列");
     m_currentTaskIndex = 0;
     processCurrentTask();
 }
 
+// 5. 处理当前传感器任务 (移动电机)
 void CalibrationManager::processCurrentTask() {
     if (m_canceling) return;
 
+    // 检查是否所有传感器测完
     if (m_currentTaskIndex >= m_taskQueue.size()) {
-        finishSequence();
+        finishSequence(); // 本轮结束
         return;
     }
 
     SensorTask task = m_taskQueue[m_currentTaskIndex];
+
+    // 计算角度：(位置-1) * 40度
     double targetAngle = (task.position - 1) * DEGREES_PER_SLOT;
 
-    setCurrentOperation(QString("电机移动至位置 %1 (%2度) 测量 %3")
-                            .arg(task.position).arg(targetAngle).arg(task.comPort));
+    setCurrentOperation(QString("电机移动至位置 %1 (COM: %2)...").arg(task.position).arg(task.comPort));
 
     m_pausedStage = ServoMoving;
+    // 发送绝对定位指令（底层会转为相对指令）
     m_servo->moveToAbsolute(targetAngle);
 }
 
+// 6. 电机到位回调 (开始5分钟等待)
 void CalibrationManager::onServoInPosition() {
+    // 只有在自动流程的移动阶段才处理
     if (m_pausedStage != ServoMoving) return;
 
-    QTimer::singleShot(1500, this, [this](){
-        if (m_currentTaskIndex < m_taskQueue.size()) {
-            QString comPort = m_taskQueue[m_currentTaskIndex].comPort;
+    SensorTask task = m_taskQueue[m_currentTaskIndex];
 
-            setCurrentOperation(QString("位置 %1 到位，请求红外数据(%2)...").arg(m_taskQueue[m_currentTaskIndex].position).arg(comPort));
+    // === 【修改点】等待5分钟 (300秒) ===
+    int waitSeconds = 5;
+    //int waitSeconds = 5 * 60;
+    // int waitSeconds = 10; // 调试用：改短时间
 
-            emit irMeasurementStarted(comPort);
-            emit requestIrAverage(comPort, this);
-        }
-    });
+    m_pausedStage = SensorStabilizing; // 切换状态为“等待中”
+
+    m_waitStartTime = QDateTime::currentDateTime();
+    m_waitTotalSeconds = waitSeconds;
+    m_waitDescription = QString("位置 %1 (%2) 测量中 - 等待5分钟").arg(task.position).arg(task.comPort);
+
+    // 启动5分钟定时器
+    m_sensorStabilizeTimer.start(waitSeconds * 1000);
+    m_countdownTimer.start(1000); // UI倒计时
+
+    // 通知UI开始显示该串口的实时红外数据
+    emit irMeasurementStarted(task.comPort);
 }
 
+// 7. 5分钟时间到 (触发记录)
+void CalibrationManager::onSensorStabilizeTimeout() {
+    m_countdownTimer.stop();
+    SensorTask task = m_taskQueue[m_currentTaskIndex];
+
+    setCurrentOperation(QString("位置 %1 测量时间到，正在记录数据...").arg(task.position));
+
+    // 向UI请求过去一段时间的平均数据 (MainWindow会回调 onIrAverageReceived)
+    emit requestIrAverage(task.comPort, this);
+}
+
+// 8. 接收数据并保存 (完成一个传感器)
 void CalibrationManager::onIrAverageReceived(const QString& comPort, const CalibrationManager::InfraredData& irData) {
     if (m_currentTaskIndex >= m_taskQueue.size()) return;
 
     SensorTask currentTask = m_taskQueue[m_currentTaskIndex];
+    if (currentTask.comPort != comPort) return; // 校验端口匹配
 
-    if (currentTask.comPort != comPort) {
-        qWarning() << "端口不匹配，期望:" << currentTask.comPort << " 实际:" << comPort;
-        return;
-    }
-
-    CalibrationRecord record;
-    record.blackbodyTarget = m_currentBatchData.blackbodyTarget;
-    record.blackbodyAvg = m_currentBatchData.blackbodyAvg;
-    record.measureTime = m_currentBatchData.measureTime;
-    record.comPort = comPort;
-    record.physicalPosition = currentTask.position;
-    record.irData = irData;
-
-    m_calibrationData.append(record);
-
-    setCurrentOperation(QString("位置 %1 (%2) 数据已记录").arg(currentTask.position).arg(comPort));
+    // 停止UI的红外刷新
     emit irMeasurementStopped();
 
+    // 构建记录
+    CalibrationRecord record;
+    record.physicalPosition = currentTask.position;
+    record.comPort = comPort;
+    record.measureTime = QDateTime::currentDateTime(); // 【关键】记录第5分钟的时间点
+    record.blackbodyTarget = m_blackbodyTempPoints[m_currentTempPointIndex];
+
+    // 【关键】记录此刻的黑体炉实际温度
+    record.blackbodyReal = m_blackbodyController->getCurrentTemperature();
+
+    record.irData = irData; // 保存红外数据
+
+    // 存入总表
+    m_calibrationData.append(record);
+
+    setCurrentOperation(QString("位置 %1 数据已保存 (黑体: %2℃)，准备下一个...").arg(currentTask.position).arg(record.blackbodyReal));
+
+    // 移动到下一个传感器
     m_currentTaskIndex++;
     processCurrentTask();
 }
 
+// 9. 本轮温度点结束收尾
 void CalibrationManager::finishSequence() {
-    setCurrentOperation("本温度点所有通道测量完毕，电机复位中...");
+    setCurrentOperation("本温度点所有通道测量完毕，正在收尾...");
 
+    // 1. 关闭标定窗口
     m_humidityController->toggleCalibrationWindow(false);
-    m_pausedStage = None;
 
+    // 2. 电机反转归零 (防止绕线)
     m_servo->moveToZero();
 
+    // 3. 延时后进入下一个温度点
+    m_pausedStage = None;
+
+    // 等待5秒让电机复位，然后切换下一个大温度点
     QTimer::singleShot(5000, this, [this](){
-        int nextIndex = m_currentIndex + 1;
+        int nextIndex = m_currentTempPointIndex + 1;
+
+        // 更新总进度条
         int progress = nextIndex * 100 / m_blackbodyTempPoints.size();
         emit calibrationProgress(progress);
 
+        // 递归调用开始下一个点
         calibrateNextPoint(nextIndex);
     });
 }
 
+// UI倒计时刷新辅助
+void CalibrationManager::onCountdownTimerTimeout() {
+    if (m_pausedStage != SensorStabilizing) return;
+
+    qint64 elapsed = m_waitStartTime.secsTo(QDateTime::currentDateTime());
+    int remaining = m_waitTotalSeconds - elapsed;
+    if (remaining < 0) remaining = 0;
+
+    emit countdownUpdated(remaining, m_waitDescription);
+}
+
+// 生成报告
 void CalibrationManager::generateCalibrationReport()
 {
-    setCurrentOperation(QString("开始生成测量记录，共%1条数据").arg(m_calibrationData.size()));
+    setCurrentOperation(QString("正在生成Excel报告，共 %1 条数据").arg(m_calibrationData.size()));
 
     QXlsx::Document report;
-
-    report.write(1, 1, "测量温度点(℃)");
-    report.write(1, 2, "测量时间");
-    report.write(1, 3, "黑体炉平均温度(℃)");
+    // 写入表头
+    report.write(1, 1, "目标温度(℃)");
+    report.write(1, 2, "实际黑体温度(℃)"); // 新增列
+    report.write(1, 3, "测量时间");
     report.write(1, 4, "物理位置");
-    report.write(1, 5, "COM口号");
-    report.write(1, 6, "设备类型");
-    report.write(1, 7, "TO1平均(℃)");
-    report.write(1, 8, "TA1平均(℃)");
-    report.write(1, 9, "LC1平均(℃)");
-    report.write(1, 10, "TO2平均(℃)");
-    report.write(1, 11, "TA2平均(℃)");
-    report.write(1, 12, "LC2平均(℃)");
-    report.write(1, 13, "TO3平均(℃)");
-    report.write(1, 14, "TA3平均(℃)");
-    report.write(1, 15, "LC3平均(℃)");
+    report.write(1, 5, "COM口");
+    report.write(1, 6, "TO1");
+    report.write(1, 7, "TA1");
+    report.write(1, 8, "LC1");
 
     int row = 2;
-    for (const auto &record : m_calibrationData) {
-        report.write(row, 1, record.blackbodyTarget);
-        report.write(row, 2, record.measureTime.toString("yyyy-MM-dd HH:mm"));
-        report.write(row, 3, record.blackbodyAvg);
-        report.write(row, 4, record.physicalPosition);
-        report.write(row, 5, record.comPort);
-        report.write(row, 6, record.irData.type);
+    for (const auto &rec : m_calibrationData) {
+        report.write(row, 1, rec.blackbodyTarget);
+        report.write(row, 2, rec.blackbodyReal); // 写入实际值
+        report.write(row, 3, rec.measureTime.toString("yyyy-MM-dd HH:mm:ss"));
+        report.write(row, 4, rec.physicalPosition);
+        report.write(row, 5, rec.comPort);
 
-        const auto& d = record.irData;
-        for (int i = 0; i < 3; ++i) {
-            int baseCol = 7 + i * 3;
-            if (i < d.toAvgs.size() && qIsFinite(d.toAvgs[i])) report.write(row, baseCol, d.toAvgs[i]);
-            if (i < d.taAvgs.size() && qIsFinite(d.taAvgs[i])) report.write(row, baseCol + 1, d.taAvgs[i]);
-            if (i < d.lcAvgs.size() && qIsFinite(d.lcAvgs[i])) report.write(row, baseCol + 2, d.lcAvgs[i]);
-        }
+        // 写入第一个探头的数据 (如果有更多探头需扩展)
+        if (!rec.irData.toAvgs.isEmpty()) report.write(row, 6, rec.irData.toAvgs[0]);
+        if (!rec.irData.taAvgs.isEmpty()) report.write(row, 7, rec.irData.taAvgs[0]);
+        if (!rec.irData.lcAvgs.isEmpty()) report.write(row, 8, rec.irData.lcAvgs[0]);
+
         row++;
     }
 
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    QString fileName = QString("measurement_record_%1.xlsx").arg(timestamp);
-
+    QString fileName = QString("Calibration_%1.xlsx").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
     if (report.saveAs(fileName)) {
-        setCurrentOperation(QString("测量记录保存成功：%1").arg(fileName));
+        setCurrentOperation("报告生成成功: " + fileName);
         m_currentState = Finished;
         emit stateChanged(Finished);
-        emit calibrationFinished(m_calibrationData);
+        QMessageBox::information(nullptr, "完成", "标校流程结束，报告已生成！");
     } else {
-        setCurrentOperation("测量记录保存失败");
-        emit errorOccurred("测量记录保存失败");
+        emit errorOccurred("报告保存失败！");
     }
 }
 
-void CalibrationManager::cancelCalibration()
-{
-    if (m_currentState == Running || m_currentState == Paused) {
-        m_currentState = Canceling;
-        m_canceling = true;
-
-        m_timer.stop();
-        m_minuteSampleTimer.stop();
-        m_fiveMinuteTimer.stop();
-        m_sixMinuteTimer.stop();
-        m_countdownTimer.stop();
-        m_waitNextMinuteTimer.stop();
-
-        if(m_servo) m_servo->stop();
-
-        m_humidityController->toggleCalibrationWindow(false);
-        m_blackbodyController->setDeviceState(false);
-        m_humidityController->setDeviceState(false);
-
-        emit irMeasurementStopped();
-        emit stateChanged(Canceling);
-
-        m_currentIndex = -1;
-        m_currentTaskIndex = 0;
-
-        QTimer::singleShot(1000, this, [this]() {
-            m_currentState = Idle;
-            m_canceling = false;
-            emit stateChanged(Idle);
-            setCurrentOperation("标校已取消");
-        });
-    }
-}
-
-void CalibrationManager::pauseCalibration()
-{
+// 暂停/恢复/取消功能的简单适配
+void CalibrationManager::pauseCalibration() {
     if (m_currentState == Running) {
         m_currentState = Paused;
         m_paused = true;
-
-        m_timer.stop();
-        m_minuteSampleTimer.stop();
-        m_fiveMinuteTimer.stop();
-        m_sixMinuteTimer.stop();
+        // 停止所有计时器
+        m_stabilityTimer.stop();
+        m_sensorStabilizeTimer.stop();
         m_countdownTimer.stop();
-        m_waitNextMinuteTimer.stop();
-
-        setCurrentOperation("标校已暂停");
         emit stateChanged(Paused);
     }
 }
 
-void CalibrationManager::resumeCalibration()
-{
-    if (m_currentState != Paused) return;
+void CalibrationManager::resumeCalibration() {
+    if (m_currentState == Paused) {
+        m_currentState = Running;
+        m_paused = false;
+        emit stateChanged(Running);
 
-    m_currentState = Running;
-    m_paused = false;
-    emit stateChanged(Running);
-    setCurrentOperation("标校已恢复");
-
-    switch (m_pausedStage) {
-    case StabilityCheck:
-        m_timer.start();
-        break;
-    case WaitingForNextMinute:
-        m_countdownTimer.start();
-        if (m_totalWaitSeconds > 0) {
-            qint64 elapsed = m_currentWaitStartTime.secsTo(QDateTime::currentDateTime());
-            qint64 remaining = m_totalWaitSeconds - elapsed;
-            if (remaining > 0) m_waitNextMinuteTimer.start(remaining * 1000);
-            else onWaitNextMinuteTimeout();
+        // 根据暂停阶段恢复计时器
+        if (m_pausedStage == StabilityCheck) m_stabilityTimer.start();
+        else if (m_pausedStage == SensorStabilizing) {
+            // 恢复剩余时间的计时
+            qint64 elapsed = m_waitStartTime.secsTo(QDateTime::currentDateTime());
+            int remaining = m_waitTotalSeconds - elapsed;
+            if (remaining > 0) m_sensorStabilizeTimer.start(remaining * 1000);
+            else onSensorStabilizeTimeout();
+            m_countdownTimer.start();
         }
-        break;
-    case WaitingSixMinutes:
-    {
-        qint64 elapsed = m_startSixMinuteTime.secsTo(QDateTime::currentDateTime());
-        qint64 remainingSix = 6 * 60 - elapsed;
-
-        if (remainingSix > 0) {
-            m_sixMinuteTimer.start(remainingSix * 1000);
-        } else {
-            onSixMinuteTimeout();
-            return;
-        }
-
-        if (elapsed < 5 * 60) {
-            m_fiveMinuteTimer.start((5 * 60 - elapsed) * 1000);
-        } else if (m_pausedStage != MinuteSampling) {
-            onFiveMinuteTimeout(); // 手动触发5分钟逻辑
-        }
-        m_countdownTimer.start();
-    }
-    break;
-    case MinuteSampling:
-        m_minuteSampleTimer.start();
-        {
-            qint64 elapsed = m_currentWaitStartTime.secsTo(QDateTime::currentDateTime());
-            qint64 remaining = 60 - elapsed;
-            if (remaining > 0) m_sixMinuteTimer.start(remaining * 1000);
-            else onSixMinuteTimeout(); // 手动触发6分钟结束逻辑
-        }
-        break;
-    case ServoMoving:
-        processCurrentTask();
-        break;
-    default:
-        break;
     }
 }
 
-void CalibrationManager::onCountdownTimerTimeout()
-{
-    qint64 elapsed = m_currentWaitStartTime.secsTo(QDateTime::currentDateTime());
-    qint64 remaining = m_totalWaitSeconds - elapsed;
-    remaining = qMax(remaining, static_cast<qint64>(0));
-    emit countdownUpdated(remaining, m_currentCountdownStage);
-}
-
-void CalibrationManager::onWaitNextMinuteTimeout()
-{
-    if (m_paused || m_canceling || m_currentState != Running) return;
-
-    m_pausedStage = None;
+void CalibrationManager::cancelCalibration() {
+    m_currentState = Canceling;
+    m_canceling = true;
+    m_stabilityTimer.stop();
+    m_sensorStabilizeTimer.stop();
     m_countdownTimer.stop();
-    this->startWaitingSixMinutes(m_currentWaitIndex);
+
+    if(m_servo) m_servo->stop();
+    m_humidityController->toggleCalibrationWindow(false);
+    m_blackbodyController->setDeviceState(false);
+
+    // 必须有这段代码才能恢复 Idle 状态！
+    QTimer::singleShot(1000, this, [this]() {
+        m_currentState = Idle;
+        m_canceling = false;
+        emit stateChanged(Idle); // <--- 这一句触发 MainWindow 更新 UI
+        setCurrentOperation("标校已取消");
+    });
 }
 
 void CalibrationManager::setCurrentOperation(const QString &operation)
 {
     currentOperation = operation;
+    // 发送信号更新UI
     emit currentOperationChanged(operation);
+    // 打印调试日志
     qDebug() << "操作状态：" << operation;
 }
 

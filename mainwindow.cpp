@@ -273,13 +273,14 @@ MainWindow::MainWindow(QWidget *parent)
 
      connect(m_calibrationManager, &CalibrationManager::requestIrAverage,
              this, [this](const QString& comPort, QObject* receiver) {
-                 // 调用计算接口
+                 // 1. 计算数据
                  auto irData = getIrAverage(comPort);
-                 // 发送结果给CalibrationManager，同时传递COM口
-                 QMetaObject::invokeMethod(receiver, "onIrAverageReceived",
-                                           Qt::QueuedConnection,
-                                           Q_ARG(QString, comPort),
-                                           Q_ARG(CalibrationManager::InfraredData, irData));
+
+                 // 2. 【修改】直接调用，代替 invokeMethod
+                 auto* manager = qobject_cast<CalibrationManager*>(receiver);
+                 if (manager) {
+                     manager->onIrAverageReceived(comPort, irData);
+                 }
              });
 
 }
@@ -1486,6 +1487,11 @@ void MainWindow::onCalibrationStateChanged(CalibrationManager::State newState)
     case CalibrationManager::Idle:  // 新增空闲状态处理
         ui->statusLabel_3->setText("准备就绪");
         calibrationInProgress = false;
+
+        // 【新增/加强】确保开始按钮被启用！
+        ui->startCalibrationButton->setEnabled(true);
+        ui->pauseResumeButton->setEnabled(false);
+        ui->cancelButton->setEnabled(false);
 
         // 核心新增逻辑：当从"取消中"状态切换到"空闲"状态时，显示取消成功提示
         if (lastState == CalibrationManager::Canceling) {
@@ -3462,6 +3468,8 @@ void MainWindow::setupServoControls()
                 ui->statusLabel_4->setText("已连接");
                 ui->statusLabel_4->setStyleSheet("QLabel { background-color: #00FF00; border-radius: 4px; color: black; padding: 2px; font-weight: bold; }");
                 ui->statusbar->showMessage(QString("伺服电机自动连接成功: %1").arg(lastPort), 3000);
+
+                QTimer::singleShot(200, m_servoController, &ServoMotorController::initDriverParameters);
             } else {
                 // 【新增】连接失败弹出提示
                 QMessageBox::warning(this, "连接提示",
@@ -3489,6 +3497,9 @@ void MainWindow::onOpenServoComClicked()
             ui->COMcomboBox_3->setEnabled(false);
             ui->statusLabel_4->setText("已连接");
             ui->statusLabel_4->setStyleSheet("QLabel { background-color: #00FF00; border-radius: 4px; color: black; padding: 2px; font-weight: bold; }");
+
+            // 使用延时200ms确保串口稳定后再发指令
+            QTimer::singleShot(200, m_servoController, &ServoMotorController::initDriverParameters);
 
             // 保存配置
             m_settings->setValue("servo/com_port", portName);

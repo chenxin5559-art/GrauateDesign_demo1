@@ -107,8 +107,8 @@ void CalibrationManager::checkStability(int index)
     m_stabilitySamples.clear();
     m_sampleCount = 0;
 
-    int windowSize = 15; // 采样窗口：15次 * 2秒 = 30秒
-    //int windowSize = 150; // 采样窗口：150次 * 2秒 = 5分钟
+    // int windowSize = 15; // 采样窗口：15次 * 2秒 = 30秒
+    int windowSize = 150; // 采样窗口：150次 * 2秒 = 5分钟
     int interval = 2;     // 2秒一次
 
     setCurrentOperation(QString("等待环境稳定 (目标: %1℃)...").arg(targetTemp));
@@ -196,8 +196,8 @@ void CalibrationManager::onServoInPosition() {
     SensorTask task = m_taskQueue[m_currentTaskIndex];
 
     // === 【修改点】等待5分钟 (300秒) ===
-    int waitSeconds = 5;
-    //int waitSeconds = 5 * 60;
+    //int waitSeconds = 5;
+    int waitSeconds = 5 * 60;
     // int waitSeconds = 10; // 调试用：改短时间
 
     m_pausedStage = SensorStabilizing; // 切换状态为“等待中”

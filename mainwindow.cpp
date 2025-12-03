@@ -3168,8 +3168,10 @@ void MainWindow::onIrMeasurementStarted(const QString &comPort) {
 void MainWindow::onIrMeasurementStopped() {
     qDebug() << "[MainWindow] 收到红外测量结束信号，停止数据显示";
     m_irDataTimer->stop();
-    m_dualTempChart->clearIrData(); // 清除红外数据
-    m_dualTempChart->setIrDataVisible(false); // 隐藏红外曲线
+
+    // m_dualTempChart->clearIrData(); // 清除红外数据
+    // m_dualTempChart->setIrDataVisible(false); // 隐藏红外曲线
+
     m_currentIrComPort.clear();
 }
 

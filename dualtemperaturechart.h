@@ -1,43 +1,74 @@
-// DualTemperatureChart.h
 #ifndef DUALTEMPERATURECHART_H
 #define DUALTEMPERATURECHART_H
 
 #include <QWidget>
 #include <QtCharts>
 #include <QDateTime>
+#include <QComboBox> // 新增
 
-    class DualTemperatureChart : public QWidget {
+QT_CHARTS_USE_NAMESPACE
+
+    class DualTemperatureChart : public QWidget
+{
     Q_OBJECT
 public:
     explicit DualTemperatureChart(QWidget *parent = nullptr);
-    // 更新黑体炉温度数据
-    void updateBlackbodyData(const QDateTime &timestamp, float temperature);
-    // 更新恒温箱温度数据
-    void updateHumidityBoxData(const QDateTime &timestamp, float temperature);
-    // 更新红外测温仪数据
-    void updateIrData(const QDateTime &timestamp, float toTemp, float taTemp);
-    // 清除红外测温仪数据
-    void clearIrData();
-    // 设置红外数据可见性
-    void setIrDataVisible(bool visible);
+
+    // 更新数据接口
+    void updateBlackbodyData(QDateTime time, float temp);
+    void updateHumidityBoxData(QDateTime time, float temp);
+    void updateIrData(QDateTime time, float to, float ta); // 红外数据接口
+
+    void clearIrData(); // 清除红外数据
+    void setIrDataVisible(bool visible); // 设置红外曲线可见性
+
+    // 新增：时间范围枚举
+    enum TimeRange {
+        Last30Minutes,
+        Last1Hour,
+        Last2Hours,
+        Last6Hours,
+        Last12Hours,
+        AllData
+    };
+
+private slots:
+    // 新增：处理时间范围变更
+    void onTimeRangeChanged(int index);
 
 private:
-    QChart *m_chart;               // 主图表
-    QLineSeries *m_blackbodySeries; // 黑体炉曲线
-    QLineSeries *m_humiditySeries;  // 恒温箱曲线
-    QLineSeries *m_irToSeries;      // 红外TO曲线
-    QLineSeries *m_irTaSeries;      // 红外TA曲线
-    QDateTimeAxis *m_axisX;         // 共享X轴（时间）
-    QValueAxis *m_axisY;            // 共享Y轴（温度）
+    QChartView *m_chartView;
+    QChart *m_chart;
 
-    // 存储所有曲线的历史数据（近30分钟）
-    QList<QPair<QDateTime, double>> m_blackbodyData;
-    QList<QPair<QDateTime, double>> m_humidityData;
-    QList<QPair<QDateTime, double>> m_irToData;    // 红外TO数据
-    QList<QPair<QDateTime, double>> m_irTaData;    // 红外TA数据
+    // 曲线系列
+    QLineSeries *m_seriesBlackbody; // 黑体炉
+    QLineSeries *m_seriesHumidityBox; // 恒温箱
+    QLineSeries *m_seriesIrTO; // 红外TO
+    QLineSeries *m_seriesIrTA; // 红外TA
 
-    void trimOldData(); // 清理30分钟前的旧数据
-    void updateAxisRanges(); // 更新坐标轴范围
+    // 坐标轴
+    QDateTimeAxis *m_axisX;
+    QValueAxis *m_axisY;
+
+    // 新增：下拉框控件
+    QComboBox *m_rangeComboBox;
+
+    // 新增：存储所有历史数据（用于重新筛选显示）
+    struct DataPoint {
+        QDateTime time;
+        float value;
+    };
+    QVector<DataPoint> m_allBlackbodyData;
+    QVector<DataPoint> m_allHumidityBoxData;
+    QVector<DataPoint> m_allIrTOData;
+    QVector<DataPoint> m_allIrTAData;
+
+    // 新增：当前选择的时间范围
+    TimeRange m_currentTimeRange = AllData;
+
+    // 辅助函数：根据时间范围筛选并更新Series
+    void refreshChartDisplay();
+    void updateSeries(QLineSeries *series, const QVector<DataPoint> &allData, const QDateTime &startTime);
 };
 
 #endif // DUALTEMPERATURECHART_H

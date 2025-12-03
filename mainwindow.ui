@@ -188,7 +188,7 @@ QProgressBar::chunk {
        <enum>QTabWidget::TabShape::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -587,7 +587,7 @@ QProgressBar::chunk {
           <x>40</x>
           <y>190</y>
           <width>1001</width>
-          <height>531</height>
+          <height>581</height>
          </rect>
         </property>
        </widget>
@@ -1316,7 +1316,7 @@ QProgressBar::chunk {
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="">
+        <widget class="QWidget" name="layoutWidget">
          <property name="geometry">
           <rect>
            <x>20</x>

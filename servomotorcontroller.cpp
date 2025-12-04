@@ -97,6 +97,8 @@ void ServoMotorController::initDriverParameters() {
 void ServoMotorController::resetZeroPoint() {
     if (!isConnected()) return;
 
+    m_buffer.clear(); // 【新增】清空缓存
+
     emit logMessage("正在执行位置清零...");
 
     // 1. 清除可能存在的报错 (Fault)
@@ -141,20 +143,23 @@ void ServoMotorController::moveRelative(double angle) {
         return;
     }
 
-    // 1. 设置相对位移量 (0xca)
+    // 1. 设置相对位移量
     sendCommand(QString("s r0xca %1").arg(counts));
 
-    // 2. 触发运动 (t 1)
+    // 2. 触发运动
     sendCommand("t 1");
 
-    // 3. 更新软件记录的目标位置
-    // 注意：这里我们假设驱动器一定会走到。
-    // 因为驱动器内部计数器被清零过，我们维护一个平行的软件计数器
+    // 3. 更新目标位置
     m_currentSoftwareCounts += counts;
     m_targetSoftwareCounts = m_currentSoftwareCounts;
 
     m_isMoving = true;
     m_pollTimer->start();
+
+    // 【修改点】启动超时定时器 (例如 20秒，根据电机转速调整)
+    // 防止电机实际动了但串口没收到反馈导致死锁
+    if(m_timeoutTimer) m_timeoutTimer->start(20000);
+
     emit logMessage(QString("电机相对运动: %1度 (%2 counts)").arg(angle).arg(counts));
 }
 
@@ -183,6 +188,7 @@ void ServoMotorController::stop() {
     sendCommand("s r0x24 0"); // 去能/停止
     m_isMoving = false;
     m_pollTimer->stop();
+    if(m_timeoutTimer) m_timeoutTimer->stop(); // 【新增】
 }
 
 void ServoMotorController::checkPositionStatus() {
@@ -191,28 +197,43 @@ void ServoMotorController::checkPositionStatus() {
 }
 
 void ServoMotorController::onDataReceived() {
-    QByteArray data = m_serial->readAll();
-    QString response = QString::fromLatin1(data).trimmed();
+    // 1. 将新数据追加到缓存
+    m_buffer.append(m_serial->readAll());
 
-    // 调试输出，方便你看日志
-    // qDebug() << "Servo Resp:" << response;
+    // 2. 按行处理数据 (以 \r 为结束符，Copley驱动器通常以 \r 结尾)
+    while (m_buffer.contains('\r')) {
+        int endIndex = m_buffer.indexOf('\r');
+        QByteArray lineData = m_buffer.left(endIndex); // 取出一行
+        m_buffer.remove(0, endIndex + 1); // 从缓存中移除已处理的数据 (包含 \r)
 
-    if (response.startsWith("v ") && m_isMoving) {
-        bool ok;
-        // 注意：这里读到的是驱动器的绝对位置
-        // 因为我们在 resetZeroPoint 时发送了 r，驱动器归零了
-        // 所以理论上 驱动器读数 ≈ m_targetSoftwareCounts
-        long long currentDriverCounts = response.mid(2).toLongLong(&ok);
+        // 去除可能的换行符 \n 和首尾空格
+        QString response = QString::fromLatin1(lineData).trimmed();
 
-        if (ok) {
-            long long diff = qAbs(currentDriverCounts - m_targetSoftwareCounts);
+        // 调试日志：看看实际上收到了什么（调试完成后可注释掉）
+        // qDebug() << "Servo Raw Line:" << response;
 
-            // 判断到位
-            if (diff <= POSITION_TOLERANCE) {
-                m_isMoving = false;
-                m_pollTimer->stop();
-                emit logMessage(QString("电机到位 (误差: %1)").arg(diff));
-                emit positionReached();
+        // 3. 解析位置数据
+        // 驱动器回复格式通常是 "v 123456"
+        if (m_isMoving && response.startsWith("v ")) {
+            bool ok;
+            // 提取 "v " 后面的数字
+            long long currentDriverCounts = response.mid(2).toLongLong(&ok);
+
+            if (ok) {
+                // 计算误差
+                long long diff = qAbs(currentDriverCounts - m_targetSoftwareCounts);
+
+                // qDebug() << "Target:" << m_targetSoftwareCounts << " Current:" << currentDriverCounts << " Diff:" << diff;
+
+                // 判断是否到位
+                if (diff <= POSITION_TOLERANCE) {
+                    m_isMoving = false;
+                    m_pollTimer->stop();
+                    if(m_timeoutTimer) m_timeoutTimer->stop(); // 停止超时计时
+
+                    emit logMessage(QString("电机到位 (误差: %1)").arg(diff));
+                    emit positionReached();
+                }
             }
         }
     }

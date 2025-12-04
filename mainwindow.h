@@ -245,6 +245,9 @@ private:
     QMap<QString, QVector<QPair<QPair<QVector<float>, QVector<float>>, QVector<float>>>> m_irMultiCache; // 多头：<<TOs, TAs>, LCs>
     QMutex m_irCacheMutex; // 缓存锁（线程安全）
 
+    // 【新增】辅助函数：解析温度字符串
+    QVector<float> parseTemperatureString(const QString &text);
+
 signals:
     void newTemperatureData(QDateTime time, float temp);
     void newTemperatureData2(QDateTime time, float temp);

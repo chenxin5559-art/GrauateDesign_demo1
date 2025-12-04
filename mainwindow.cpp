@@ -1358,40 +1358,41 @@ void MainWindow::onStartCalibrationClicked()
 {
     calibrationButtonClickCount++;
 
-    // 1. 解析温度点 (保留原有逻辑)
-    QString blackbodyTempStr = ui->blackbodyTempInput->text();
-    QStringList blackbodyTemps = blackbodyTempStr.split(",");
+    // 1. 解析温度点（分别解析建模和验证，然后合并）
+    QString modStr = ui->blackbodyModelingTempInput->text();
+    QString verStr = ui->blackbodyVerifyTempInput->text();
+
+    QVector<float> modPoints = parseTemperatureString(modStr);
+    QVector<float> verPoints = parseTemperatureString(verStr);
     QVector<float> blackbodyTempPoints;
     QVector<float> humidityTempPoints;
 
-    for (const QString &tempStr : blackbodyTemps) {
-        bool ok;
-        float temp = tempStr.toFloat(&ok);
-        if (ok) {
-            blackbodyTempPoints.append(temp);
-        }
-    }
-
-    if (blackbodyTempPoints.isEmpty()) {
-        QMessageBox::warning(this, "错误", "请输入有效的黑体炉温度点");
+    if (modPoints.isEmpty() && verPoints.isEmpty()) {
+        QMessageBox::warning(this, "错误", "请输入有效的黑体炉温度点（建模或验证至少填写一项）");
         return;
     }
 
-    // 生成恒温箱温度点 (保留原有逻辑)
+    // 合并温度点：先跑建模，再跑验证
+    blackbodyTempPoints = modPoints + verPoints;
+
+    // 生成恒温箱温度点
     int calibrationType = ui->calibrationTypeComboBox->currentIndex();
-    bool isInside = (calibrationType == 0 || calibrationType == 2);
+    bool isInside = (calibrationType == 0 || calibrationType == 2); // 0:单头箱内, 2:多头箱内
+
+    // 【新增】确定环境类型字符串 ("箱内" 或 "箱外")
+    QString envType = isInside ? "箱内" : "箱外";
+
     for (float bbTemp : blackbodyTempPoints) {
-        if (isInside) humidityTempPoints.append(bbTemp);
-        else humidityTempPoints.append(25.0f);
+        if (isInside) {
+            humidityTempPoints.append(bbTemp); // 箱内：恒温箱跟随黑体炉
+        } else {
+            humidityTempPoints.append(25.0f);  // 箱外：恒温箱固定25度
+        }
     }
 
-    // ================== 【新增核心逻辑开始】 ==================
-
-    // 2. 连接伺服电机 (如果未连接)
+    // 2. 连接伺服电机 (保持原有逻辑)
     if (!m_servoController->isConnected()) {
-        // 优先从 config.ini 读取 servo/com_port，如果没有则默认 COM1
         QString servoPort = m_settings->value("servo/com_port", "COM1").toString();
-
         if (!m_servoController->connectDevice(servoPort)) {
             QMessageBox::critical(this, "连接失败",
                                   QString("无法连接伺服电机 (端口: %1)\n请在 config.ini 中配置 [servo] com_port=COMx").arg(servoPort));
@@ -1399,9 +1400,9 @@ void MainWindow::onStartCalibrationClicked()
         }
     }
 
-    // 3. 解析设备位置配置 (例如 "1-COM9, 2-COM11")
+    // 3. 解析设备位置配置 (保持原有逻辑)
     QString mappingStr = m_settings->value("devices/com_ports").toString();
-    mappingStr.remove('"'); // 去除引号
+    mappingStr.remove('"');
     QStringList pairs = mappingStr.split(',', Qt::SkipEmptyParts);
     QVector<SensorTask> taskQueue;
 
@@ -1409,8 +1410,8 @@ void MainWindow::onStartCalibrationClicked()
         QStringList parts = pair.split('-');
         if (parts.size() == 2) {
             bool ok;
-            int pos = parts[0].toInt(&ok);     // 物理位置
-            QString com = parts[1].trimmed();  // COM口
+            int pos = parts[0].toInt(&ok);
+            QString com = parts[1].trimmed();
 
             if (ok && pos >= 1 && pos <= 10) {
                 taskQueue.append({com, pos});
@@ -1421,21 +1422,19 @@ void MainWindow::onStartCalibrationClicked()
     }
 
     if (taskQueue.isEmpty()) {
-        QMessageBox::critical(this, "配置错误", "未解析到有效的设备位置信息！\n请检查 config.ini 的 [devices] com_ports 设置。\n格式应为: 1-COMx, 2-COMy");
+        QMessageBox::critical(this, "配置错误", "未解析到有效的设备位置信息！\n请检查 config.ini 的 [devices] com_ports 设置。");
         return;
     }
 
     // 4. 将任务队列传递给管理器
     m_calibrationManager->setMeasurementQueue(taskQueue);
 
-    // ================== 【新增核心逻辑结束】 ==================
-
     checkAutoSaveSettings();
     calibrationInProgress = true;
     ui->startCalibrationButton->setEnabled(false);
 
-    // 启动标定
-    m_calibrationManager->startCalibration(blackbodyTempPoints, humidityTempPoints);
+    // 【修改】启动标定，传入第4个参数 envType
+    m_calibrationManager->startCalibration(modPoints, verPoints, humidityTempPoints, envType);
 }
 
 
@@ -2988,21 +2987,29 @@ void MainWindow::loadConfigToUI()
         qWarning() << "UI中未找到 servoComEdit 控件，无法显示电机串口";
     }
 
-    // 加载标定温度配置到"标定配置"页
-    QString multiHeadOut = settings.value("calibration_temperatures/multi_head_out",
-                                          "30,40,50,60,70,25,20,15,10,5,0,-5,-10,-15,-20,-25,-30").toString();
-    QString multiHeadIn = settings.value("calibration_temperatures/multi_head_in",
-                                         "30,40,50,60,70,30,25,20,15,10,5,0,-5,-10,-15,-20,-25,-30").toString();
-    QString singleHeadOut = settings.value("calibration_temperatures/single_head_out",
-                                           "30,40,50,60,70,25,20,15,10,5,0,-5,-10,-15,-20,-25").toString();
-    QString singleHeadIn = settings.value("calibration_temperatures/single_head_in",
-                                          "30,40,50,60,70,30,25,20,15,10,5,0,-5,-10,-15,-20,-25").toString();
+    // 1. 单头箱内
+    QString singleHeadInMod = settings.value("calibration_temperatures/single_head_in_modeling", "30,40,50").toString();
+    QString singleHeadInVer = settings.value("calibration_temperatures/single_head_in_verify", "35,45").toString();
+    ui->singleHeadInModelingTempEdit->setText(singleHeadInMod);
+    ui->singleHeadInVerifyTempEdit->setText(singleHeadInVer);
 
-    // 显示到"标定配置"页的QLineEdit（假设控件名对应）
-    ui->multiHeadOutTempEdit->setText(multiHeadOut);
-    ui->multiHeadInTempEdit->setText(multiHeadIn);
-    ui->singleHeadOutTempEdit->setText(singleHeadOut);
-    ui->singleHeadInTempEdit->setText(singleHeadIn);
+    // 2. 单头箱外
+    QString singleHeadOutMod = settings.value("calibration_temperatures/single_head_out_modeling", "30,40,50").toString();
+    QString singleHeadOutVer = settings.value("calibration_temperatures/single_head_out_verify", "35,45").toString();
+    ui->singleHeadOutModelingTempEdit->setText(singleHeadOutMod);
+    ui->singleHeadOutVerifyTempEdit->setText(singleHeadOutVer);
+
+    // 3. 多头箱内
+    QString multiHeadInMod = settings.value("calibration_temperatures/multi_head_in_modeling", "30,40,50").toString();
+    QString multiHeadInVer = settings.value("calibration_temperatures/multi_head_in_verify", "35,45").toString();
+    ui->multiHeadInModelingTempEdit->setText(multiHeadInMod);
+    ui->multiHeadInVerifyTempEdit->setText(multiHeadInVer);
+
+    // 4. 多头箱外
+    QString multiHeadOutMod = settings.value("calibration_temperatures/multi_head_out_modeling", "30,40,50").toString();
+    QString multiHeadOutVer = settings.value("calibration_temperatures/multi_head_out_verify", "35,45").toString();
+    ui->multiHeadOutModelingTempEdit->setText(multiHeadOutMod);
+    ui->multiHeadOutVerifyTempEdit->setText(multiHeadOutVer);
 
 }
 
@@ -3102,50 +3109,87 @@ void MainWindow::on_saveCalibrationConfigButton_clicked()
 {
     QSettings settings("config.ini", QSettings::IniFormat);
 
-    // 保存标定温度配置
-    settings.setValue("calibration_temperatures/multi_head_out", ui->multiHeadOutTempEdit->text().trimmed());
-    settings.setValue("calibration_temperatures/multi_head_in", ui->multiHeadInTempEdit->text().trimmed());
-    settings.setValue("calibration_temperatures/single_head_out", ui->singleHeadOutTempEdit->text().trimmed());
-    settings.setValue("calibration_temperatures/single_head_in", ui->singleHeadInTempEdit->text().trimmed());
+    // 保存拆分后的温度配置
+    // 单头箱内
+    settings.setValue("calibration_temperatures/single_head_in_modeling", ui->singleHeadInModelingTempEdit->text().trimmed());
+    settings.setValue("calibration_temperatures/single_head_in_verify", ui->singleHeadInVerifyTempEdit->text().trimmed());
+
+    // 单头箱外
+    settings.setValue("calibration_temperatures/single_head_out_modeling", ui->singleHeadOutModelingTempEdit->text().trimmed());
+    settings.setValue("calibration_temperatures/single_head_out_verify", ui->singleHeadOutVerifyTempEdit->text().trimmed());
+
+    // 多头箱内
+    settings.setValue("calibration_temperatures/multi_head_in_modeling", ui->multiHeadInModelingTempEdit->text().trimmed());
+    settings.setValue("calibration_temperatures/multi_head_in_verify", ui->multiHeadInVerifyTempEdit->text().trimmed());
+
+    // 多头箱外
+    settings.setValue("calibration_temperatures/multi_head_out_modeling", ui->multiHeadOutModelingTempEdit->text().trimmed());
+    settings.setValue("calibration_temperatures/multi_head_out_verify", ui->multiHeadOutVerifyTempEdit->text().trimmed());
 
     QMessageBox::information(this, "保存成功", "测量配置已保存");
+
+    // 保存后立即刷新 AutoMeasure 页面的显示
+    on_calibrationTypeComboBox_currentIndexChanged(ui->calibrationTypeComboBox->currentIndex());
 }
 
 void MainWindow::on_calibrationTypeComboBox_currentIndexChanged(int index)
 {
-    // 根据选择的类型获取对应的温度点
-    QString tempPoints;
-    bool isInside; // 是否箱内（箱内：恒温箱温度=黑体温度；箱外：恒温箱固定25℃）
+    // 根据选择的类型获取对应的温度点（建模 & 验证）
+    QString modPoints;
+    QString verPoints;
+    bool isInside; // 是否箱内
 
     switch(index)
     {
     case 0: // 单头箱内
-        tempPoints = ui->singleHeadInTempEdit->text();
+        modPoints = ui->singleHeadInModelingTempEdit->text();
+        verPoints = ui->singleHeadInVerifyTempEdit->text();
         isInside = true;
         break;
     case 1: // 单头箱外
-        tempPoints = ui->singleHeadOutTempEdit->text();
+        modPoints = ui->singleHeadOutModelingTempEdit->text();
+        verPoints = ui->singleHeadOutVerifyTempEdit->text();
         isInside = false;
         break;
     case 2: // 多头箱内
-        tempPoints = ui->multiHeadInTempEdit->text();
+        modPoints = ui->multiHeadInModelingTempEdit->text();
+        verPoints = ui->multiHeadInVerifyTempEdit->text();
         isInside = true;
         break;
     case 3: // 多头箱外
-        tempPoints = ui->multiHeadOutTempEdit->text();
+        modPoints = ui->multiHeadOutModelingTempEdit->text();
+        verPoints = ui->multiHeadOutVerifyTempEdit->text();
         isInside = false;
         break;
     default:
         return;
     }
 
-    // 填充blackbodyTempInput（测量点温度）
-    ui->blackbodyTempInput->setText(tempPoints);
+    // 填充 AutoMeasure 页面的两个输入框
+    ui->blackbodyModelingTempInput->setText(modPoints);
+    ui->blackbodyVerifyTempInput->setText(verPoints);
 
-    // 日志提示（不再设置湿度输入框）
+    // 日志提示
     qDebug() << QString("标定类型切换为：%1，恒温箱温度将%2")
                     .arg(ui->calibrationTypeComboBox->currentText())
                     .arg(isInside ? "与黑体炉温度保持一致" : "固定为25℃");
+}
+
+// 【新增】辅助函数：解析温度字符串
+QVector<float> MainWindow::parseTemperatureString(const QString &text)
+{
+    QVector<float> points;
+    // 支持中文逗号、英文逗号、空格分隔
+    QStringList list = text.split(QRegExp("[,，\\s]+"), Qt::SkipEmptyParts);
+
+    for (const QString &str : list) {
+        bool ok;
+        float val = str.toFloat(&ok);
+        if (ok) {
+            points.append(val);
+        }
+    }
+    return points;
 }
 
 // 红外测量开始时启动定时器并记录当前COM口

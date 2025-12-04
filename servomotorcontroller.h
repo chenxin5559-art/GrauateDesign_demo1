@@ -46,7 +46,10 @@ private:
 
     // 电机参数配置
     const int COUNTS_PER_REV = 1310720; // 一圈脉冲数
-    const int POSITION_TOLERANCE = 2000; // 到位判断允许误差(放宽一点防止抖动)
+    const int POSITION_TOLERANCE = 4000; // 到位判断允许误差(放宽一点防止抖动)
+
+    // 【新增】串口数据缓存区，解决断包问题
+    QByteArray m_buffer;
 
     // 【核心】软件维护的“虚拟绝对位置”
     // 因为驱动器内部计数器不能清零且容易溢出，我们在软件层记录当前应该在哪里

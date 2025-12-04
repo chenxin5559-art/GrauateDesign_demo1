@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1755</width>
-    <height>994</height>
+    <height>1009</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -210,7 +210,7 @@ QProgressBar::chunk {
         <property name="geometry">
          <rect>
           <x>330</x>
-          <y>790</y>
+          <y>810</y>
           <width>271</width>
           <height>81</height>
          </rect>
@@ -296,7 +296,7 @@ QProgressBar::chunk {
         <property name="geometry">
          <rect>
           <x>720</x>
-          <y>790</y>
+          <y>810</y>
           <width>271</width>
           <height>81</height>
          </rect>
@@ -321,7 +321,7 @@ QProgressBar::chunk {
         <property name="geometry">
          <rect>
           <x>1090</x>
-          <y>790</y>
+          <y>810</y>
           <width>271</width>
           <height>81</height>
          </rect>
@@ -410,12 +410,12 @@ QProgressBar::chunk {
 }</string>
            </property>
            <property name="text">
-            <string>测量点温度输入：</string>
+            <string>测量点建模温度输入：</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QLineEdit" name="blackbodyTempInput">
+          <widget class="QLineEdit" name="blackbodyModelingTempInput">
            <property name="font">
             <font>
              <family>PingFang SC Regular</family>
@@ -584,12 +584,72 @@ QProgressBar::chunk {
        <widget class="QWidget" name="chartContainer" native="true">
         <property name="geometry">
          <rect>
-          <x>40</x>
-          <y>190</y>
+          <x>50</x>
+          <y>220</y>
           <width>1001</width>
           <height>581</height>
          </rect>
         </property>
+       </widget>
+       <widget class="QWidget" name="layoutWidget_3">
+        <property name="geometry">
+         <rect>
+          <x>40</x>
+          <y>150</y>
+          <width>1271</width>
+          <height>49</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_22">
+         <item>
+          <widget class="QLabel" name="label_2">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="autoFillBackground">
+            <bool>false</bool>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">#label, #label_2, #progressLabel {
+    color: #333333;
+}</string>
+           </property>
+           <property name="text">
+            <string>测量点验证温度输入：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="blackbodyVerifyTempInput">
+           <property name="font">
+            <font>
+             <family>PingFang SC Regular</family>
+             <pointsize>-1</pointsize>
+             <italic>false</italic>
+             <bold>false</bold>
+             <kerning>true</kerning>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">#blackbodyTempInput, #humidityTempHumidityInput {
+    background-color: #f0f0f0;
+    border: 1px solid #cccccc;
+    border-radius: 3px;
+    padding: 5px;
+}</string>
+           </property>
+           <property name="placeholderText">
+            <string>请输入黑体炉温度，如：10,20,30,40</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </widget>
       <widget class="QWidget" name="deviceControlTab">
@@ -2887,30 +2947,30 @@ QProgressBar::chunk {
          <rect>
           <x>150</x>
           <y>110</y>
-          <width>141</width>
+          <width>191</width>
           <height>51</height>
          </rect>
         </property>
         <property name="text">
-         <string>单头箱内：</string>
+         <string>单头箱内建模：</string>
         </property>
        </widget>
-       <widget class="QLineEdit" name="singleHeadInTempEdit">
+       <widget class="QLineEdit" name="singleHeadInModelingTempEdit">
         <property name="geometry">
          <rect>
-          <x>300</x>
+          <x>350</x>
           <y>110</y>
-          <width>1161</width>
+          <width>1111</width>
           <height>51</height>
          </rect>
         </property>
        </widget>
-       <widget class="QLineEdit" name="singleHeadOutTempEdit">
+       <widget class="QLineEdit" name="singleHeadOutModelingTempEdit">
         <property name="geometry">
          <rect>
-          <x>300</x>
-          <y>190</y>
-          <width>1161</width>
+          <x>350</x>
+          <y>280</y>
+          <width>1101</width>
           <height>51</height>
          </rect>
         </property>
@@ -2918,22 +2978,22 @@ QProgressBar::chunk {
        <widget class="QLabel" name="label_11">
         <property name="geometry">
          <rect>
-          <x>150</x>
-          <y>190</y>
-          <width>141</width>
+          <x>140</x>
+          <y>280</y>
+          <width>191</width>
           <height>51</height>
          </rect>
         </property>
         <property name="text">
-         <string>单头箱外：</string>
+         <string>单头箱外建模：</string>
         </property>
        </widget>
-       <widget class="QLineEdit" name="multiHeadInTempEdit">
+       <widget class="QLineEdit" name="multiHeadInModelingTempEdit">
         <property name="geometry">
          <rect>
-          <x>300</x>
-          <y>270</y>
-          <width>1161</width>
+          <x>340</x>
+          <y>440</y>
+          <width>1101</width>
           <height>51</height>
          </rect>
         </property>
@@ -2941,22 +3001,22 @@ QProgressBar::chunk {
        <widget class="QLabel" name="label_12">
         <property name="geometry">
          <rect>
-          <x>150</x>
-          <y>270</y>
-          <width>141</width>
+          <x>130</x>
+          <y>440</y>
+          <width>191</width>
           <height>51</height>
          </rect>
         </property>
         <property name="text">
-         <string>多头箱内：</string>
+         <string>多头箱内建模：</string>
         </property>
        </widget>
-       <widget class="QLineEdit" name="multiHeadOutTempEdit">
+       <widget class="QLineEdit" name="multiHeadOutModelingTempEdit">
         <property name="geometry">
          <rect>
-          <x>300</x>
-          <y>350</y>
-          <width>1161</width>
+          <x>340</x>
+          <y>590</y>
+          <width>1101</width>
           <height>51</height>
          </rect>
         </property>
@@ -2964,27 +3024,119 @@ QProgressBar::chunk {
        <widget class="QLabel" name="label_25">
         <property name="geometry">
          <rect>
-          <x>150</x>
-          <y>350</y>
-          <width>141</width>
+          <x>130</x>
+          <y>590</y>
+          <width>191</width>
           <height>51</height>
          </rect>
         </property>
         <property name="text">
-         <string>多头箱外：</string>
+         <string>多头箱外建模：</string>
         </property>
        </widget>
        <widget class="QPushButton" name="saveCalibrationConfigButton">
         <property name="geometry">
          <rect>
           <x>650</x>
-          <y>490</y>
+          <y>730</y>
           <width>281</width>
           <height>101</height>
          </rect>
         </property>
         <property name="text">
          <string>保存测量点配置</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="singleHeadInVerifyTempEdit">
+        <property name="geometry">
+         <rect>
+          <x>350</x>
+          <y>180</y>
+          <width>1111</width>
+          <height>51</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_13">
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>180</y>
+          <width>191</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>单头箱内验证：</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="singleHeadOutVerifyTempEdit">
+        <property name="geometry">
+         <rect>
+          <x>350</x>
+          <y>340</y>
+          <width>1101</width>
+          <height>51</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_14">
+        <property name="geometry">
+         <rect>
+          <x>140</x>
+          <y>340</y>
+          <width>191</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>单头箱外验证：</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="multiHeadInVerifyTempEdit">
+        <property name="geometry">
+         <rect>
+          <x>340</x>
+          <y>500</y>
+          <width>1101</width>
+          <height>51</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_15">
+        <property name="geometry">
+         <rect>
+          <x>130</x>
+          <y>500</y>
+          <width>191</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>多头箱内验证：</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_27">
+        <property name="geometry">
+         <rect>
+          <x>130</x>
+          <y>660</y>
+          <width>191</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>多头箱外验证：</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="multiHeadOutVerifyTempEdit">
+        <property name="geometry">
+         <rect>
+          <x>340</x>
+          <y>660</y>
+          <width>1101</width>
+          <height>51</height>
+         </rect>
         </property>
        </widget>
       </widget>

@@ -73,14 +73,14 @@ DualTemperatureChart::DualTemperatureChart(QWidget *parent) : QWidget(parent)
     rangeLabel->setFont(QFont("PingFang SC Regular", 10));
 
     m_rangeComboBox = new QComboBox(this);
-    m_rangeComboBox->addItem("全部数据", AllData);
+    m_rangeComboBox->addItem("全部时间", AllData);
     m_rangeComboBox->addItem("近30分钟", Last30Minutes);
     m_rangeComboBox->addItem("近1小时", Last1Hour);
     m_rangeComboBox->addItem("近2小时", Last2Hours);
     m_rangeComboBox->addItem("近6小时", Last6Hours);
     m_rangeComboBox->addItem("近12小时", Last12Hours);
 
-    // 默认选中"全部数据"
+    // 默认选中"全部时间"
     m_rangeComboBox->setCurrentIndex(0);
 
     // 样式美化
